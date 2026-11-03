@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#12305a"/>
+  <g transform="translate(-16 -11)">
+  <!-- kalender -->
+  <rect x="96" y="120" width="290" height="276" rx="44" fill="#ffffff"/>
+  <path d="M96 164a44 44 0 0 1 44-44h202a44 44 0 0 1 44 44v34H96z" fill="#3ddc97"/>
+  <rect x="150" y="86" width="30" height="72" rx="15" fill="#ffffff" stroke="#12305a" stroke-width="10"/>
+  <rect x="302" y="86" width="30" height="72" rx="15" fill="#ffffff" stroke="#12305a" stroke-width="10"/>
+  <g fill="#12305a" opacity="0.85">
+    <rect x="138" y="236" width="44" height="36" rx="10"/>
+    <rect x="200" y="236" width="44" height="36" rx="10"/>
+    <rect x="262" y="236" width="44" height="36" rx="10" fill="#3ddc97" opacity="1"/>
+    <rect x="138" y="296" width="44" height="36" rx="10"/>
+    <rect x="200" y="296" width="44" height="36" rx="10"/>
+  </g>
+  <!-- klokje -->
+  <circle cx="356" cy="356" r="92" fill="#3ddc97" stroke="#12305a" stroke-width="16"/>
+  <circle cx="356" cy="356" r="64" fill="#ffffff"/>
+  <path d="M356 316v42l28 18" fill="none" stroke="#12305a" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="356" cy="356" r="9" fill="#12305a"/>
+  </g>
+</svg>
