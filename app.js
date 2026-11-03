@@ -211,6 +211,7 @@ function sceneHtml(mode) {
       <g class="van"><g transform="translate(236 44) scale(.95)">
         <rect x="10" y="12" width="66" height="42" rx="6" fill="#fbf4e6" stroke="#1d2b53" stroke-width="2.5"/>
         <rect x="10" y="40" width="66" height="5" fill="#1fae72"/>
+        <g class="vanload">${box(16, -2, 18, 14)}${box(36, 0, 16, 12)}${box(54, -4, 18, 16)}</g>
         <path d="M78 24h17c3 0 5 1.5 6.5 4l6 10c1 1.6 1.5 3.4 1.5 5.2V50a4 4 0 0 1-4 4H78z" fill="#1fae72" stroke="#1d2b53" stroke-width="2.5"/>
         <path d="M84 28h10c1.6 0 2.8.7 3.6 2l4.2 7H84z" fill="#fbf4e6" stroke="#1d2b53" stroke-width="1.5"/>
         <g class="wheel"><circle cx="30" cy="56" r="9" fill="#1d2b53"/><circle cx="30" cy="56" r="3.5" fill="#fbf4e6"/></g>
@@ -220,7 +221,7 @@ function sceneHtml(mode) {
         <g class="leg leg-b"><path d="M20 80v22" stroke="#2b3550" stroke-width="5" stroke-linecap="round"/><path d="M19 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
         <g class="cart">
           <path d="M37 66l13 40h12" stroke="#5b6270" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          ${box(45, 92, 18, 13)}${box(43, 79, 16, 13)}${box(44, 68, 13, 11)}
+          <g class="load">${box(45, 92, 18, 13)}${box(43, 79, 16, 13)}${box(44, 68, 13, 11)}</g>
           <g class="wheel"><circle cx="51" cy="107" r="5" fill="#1d2b53"/><circle cx="51" cy="107" r="1.8" fill="#fbf4e6"/></g>
         </g>
         <rect x="14" y="57" width="13" height="24" rx="4" fill="#c8382e" stroke="#1d2b53" stroke-width="2"/>

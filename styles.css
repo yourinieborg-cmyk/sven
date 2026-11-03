@@ -105,7 +105,11 @@ p { margin: 0 0 8px; }
 .scene .walker { transform: translateX(150px); }
 .scene.idle .walker { transform: translateX(196px); }
 .scene.idle .cart { opacity: 0; }
-.scene.walking .walker { animation: walk 7s linear infinite; }
+.scene.walking .walker { animation: trip 12s linear infinite; }
+.scene.walking .load { animation: unload 12s linear infinite; }
+.scene.walking .vanload { animation: loadup 12s linear infinite; }
+.scene.walking .van { animation: depart 12s ease-in-out infinite; }
+.scene .vanload { opacity: 0; }
 .scene.walking .man { animation: bob .45s ease-in-out infinite alternate; }
 .scene.walking .leg-a { animation: legA .45s ease-in-out infinite alternate; }
 .scene.walking .leg-b { animation: legB .45s ease-in-out infinite alternate; }
@@ -113,7 +117,11 @@ p { margin: 0 0 8px; }
 .scene.walking .floor { animation: floor 1.2s linear infinite; }
 .scene.leave .van { animation: drive 1.6s cubic-bezier(.6, 0, .8, .4) .2s both; }
 .scene.leave .van .wheel { animation: spin .4s linear infinite; }
-.scene.arrive .walker { animation: walk 7s linear infinite; }
+ /* heen met volle kar, uitladen, bus rijdt weg, terug met lege kar */
+@keyframes trip { 0% { transform: translateX(-80px); } 40%, 46% { transform: translateX(178px); } 46.01% { transform: translateX(178px) scaleX(-1); } 80%, 100% { transform: translateX(-80px) scaleX(-1); } }
+@keyframes unload { 0%, 41% { opacity: 1; } 43%, 97% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes loadup { 0%, 41% { opacity: 0; transform: translateY(-8px); } 44%, 70% { opacity: 1; transform: none; } 71%, 100% { opacity: 0; } }
+@keyframes depart { 0%, 47% { transform: none; opacity: 1; } 60% { transform: translateX(210px); opacity: 1; } 61%, 84% { transform: translateX(210px); opacity: 0; } 85% { transform: translateX(-30px); opacity: 0; } 94%, 100% { transform: none; opacity: 1; } }
 @keyframes walk { 0% { transform: translateX(-80px); } 85% { transform: translateX(178px); opacity: 1; } 92% { transform: translateX(186px); opacity: 0; } 100% { transform: translateX(186px); opacity: 0; } }
 @keyframes bob { to { transform: translateY(-1.5px); } }
 @keyframes legA { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
