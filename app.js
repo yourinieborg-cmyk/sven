@@ -5,7 +5,7 @@ import {
   rangeFromInputs, toStamp, dateKey, timeKey
 } from './calc.js';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 // ---------- state ----------
 const state = {
@@ -181,24 +181,6 @@ function nextPlanned() {
 function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
 function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
 
-const VAN = `
-<svg class="van" viewBox="0 0 120 72" aria-hidden="true">
-  <circle class="puff" cx="6" cy="54" r="5" fill="#ffffff"/>
-  <circle class="puff" cx="6" cy="54" r="4" fill="#ffffff"/>
-  <g class="van-body">
-    <rect x="10" y="12" width="66" height="42" rx="7" fill="#ffffff"/>
-    <rect x="10" y="41" width="66" height="5" fill="#3ddc97"/>
-    <rect x="31" y="19" width="22" height="17" rx="2.5" fill="#c8904f"/>
-    <rect x="40" y="19" width="4" height="17" fill="#e9c690"/>
-    <path d="M78 24h17c3 0 5 1.5 6.5 4l6 10c1 1.6 1.5 3.4 1.5 5.2V50a4 4 0 0 1-4 4H78z" fill="#3ddc97"/>
-    <path d="M84 28h10c1.6 0 2.8.7 3.6 2l4.2 7H84z" fill="#cfeee0"/>
-    <rect x="104" y="44" width="5" height="4" rx="1.5" fill="#ffd28d"/>
-    <text class="zz" x="96" y="14" font-size="12" font-weight="700" fill="#ffffff" font-family="sans-serif">z</text>
-  </g>
-  <g class="wheel"><circle cx="30" cy="56" r="9.5" fill="#0b1a33"/><circle cx="30" cy="56" r="4.2" fill="#dfe6f0"/><rect x="29" y="47.5" width="2" height="5" fill="#dfe6f0"/></g>
-  <g class="wheel"><circle cx="92" cy="56" r="9.5" fill="#0b1a33"/><circle cx="92" cy="56" r="4.2" fill="#dfe6f0"/><rect x="91" y="47.5" width="2" height="5" fill="#dfe6f0"/></g>
-</svg>`;
-
 const EMPTY_BOX = `
 <svg viewBox="0 0 96 80" aria-hidden="true">
   <ellipse cx="48" cy="74" rx="34" ry="4" fill="#12305a" opacity=".08"/>
@@ -208,6 +190,48 @@ const EMPTY_BOX = `
   <path class="lid" d="M18 34L6 22l12-10 10 10z" fill="#d9a465"/>
   <path d="M78 34l12-12-12-10-10 10z" fill="#d9a465"/>
 </svg>`;
+
+// Tekening op het startscherm: een loods met stellingen, een bestelbus bij de deur
+// en een mannetje met een steekkar. Loopt als Sven aan het werk is.
+function sceneHtml(mode) {
+  const box = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#c8904f" stroke="#1d2b53" stroke-width="1.5"/><rect x="${x + w / 2 - 2}" y="${y}" width="4" height="${h}" fill="#e9c690"/>`;
+  const rack = (x) => `
+    <g stroke="#1d2b53" stroke-width="2.5" fill="none"><path d="M${x} 112V22M${x + 96} 112V22M${x} 46h96M${x} 78h96M${x} 108h96"/></g>
+    ${box(x + 8, 30, 22, 16)}${box(x + 34, 34, 16, 12)}${box(x + 62, 26, 26, 20)}
+    ${box(x + 6, 60, 18, 18)}${box(x + 28, 64, 26, 14)}${box(x + 70, 62, 18, 16)}
+    ${box(x + 14, 92, 28, 16)}${box(x + 58, 96, 20, 12)}`;
+  return `
+  <div class="card scene ${mode}" aria-hidden="true">
+    <svg viewBox="0 0 360 124" preserveAspectRatio="xMidYMax meet">
+      <rect x="0" y="112" width="360" height="12" fill="#dcc59d"/>
+      <path class="floor" d="M-20 118h400" stroke="#1d2b53" stroke-width="2" stroke-dasharray="14 10"/>
+      ${rack(8)}${rack(116)}
+      <g><rect x="226" y="14" width="130" height="98" fill="#efe2c8" stroke="#1d2b53" stroke-width="2.5"/>
+        <path d="M226 24h130M226 32h130M226 40h130" stroke="#1d2b53" stroke-width="1.5"/></g>
+      <g class="van"><g transform="translate(236 44) scale(.95)">
+        <rect x="10" y="12" width="66" height="42" rx="6" fill="#fbf4e6" stroke="#1d2b53" stroke-width="2.5"/>
+        <rect x="10" y="40" width="66" height="5" fill="#1fae72"/>
+        <path d="M78 24h17c3 0 5 1.5 6.5 4l6 10c1 1.6 1.5 3.4 1.5 5.2V50a4 4 0 0 1-4 4H78z" fill="#1fae72" stroke="#1d2b53" stroke-width="2.5"/>
+        <path d="M84 28h10c1.6 0 2.8.7 3.6 2l4.2 7H84z" fill="#fbf4e6" stroke="#1d2b53" stroke-width="1.5"/>
+        <g class="wheel"><circle cx="30" cy="56" r="9" fill="#1d2b53"/><circle cx="30" cy="56" r="3.5" fill="#fbf4e6"/></g>
+        <g class="wheel"><circle cx="92" cy="56" r="9" fill="#1d2b53"/><circle cx="92" cy="56" r="3.5" fill="#fbf4e6"/></g>
+      </g></g>
+      <g class="walker"><g class="man">
+        <g class="leg leg-b"><path d="M20 80v22" stroke="#2b3550" stroke-width="5" stroke-linecap="round"/><path d="M19 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
+        <g class="cart">
+          <path d="M37 66l13 40h12" stroke="#5b6270" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          ${box(45, 92, 18, 13)}${box(43, 79, 16, 13)}${box(44, 68, 13, 11)}
+          <g class="wheel"><circle cx="51" cy="107" r="5" fill="#1d2b53"/><circle cx="51" cy="107" r="1.8" fill="#fbf4e6"/></g>
+        </g>
+        <rect x="14" y="57" width="13" height="24" rx="4" fill="#c8382e" stroke="#1d2b53" stroke-width="2"/>
+        <path d="M24 63l13 4" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
+        <circle cx="20" cy="50" r="7" fill="#f1c9a0" stroke="#1d2b53" stroke-width="2"/>
+        <path d="M13 49a7 7 0 0 1 14 0z" fill="#c8382e" stroke="#1d2b53" stroke-width="1.5"/><rect x="25" y="46.5" width="7" height="2.5" rx="1" fill="#c8382e"/>
+        <g class="leg leg-a"><path d="M20 80v22" stroke="#1d2b53" stroke-width="5" stroke-linecap="round"/><path d="M19 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
+      </g></g>
+    </svg>
+  </div>`;
+}
 
 function monthTotals() {
   const now = new Date();
@@ -221,15 +245,18 @@ function renderToday() {
   const onBreak = isOnBreak(s);
   const np = nextPlanned();
 
-  const statusChip = !s ? '<span class="status">Niet aan het werk</span>'
-    : onBreak ? '<span class="status break">Pauze</span>' : '<span class="status working">Aan het werk</span>';
-  const sceneCls = [s && !onBreak ? 'driving' : 'parked', state.anim || ''].join(' ');
-  state.anim = null;
+  const statusChip = !s ? '<span class="status idle">Niet aan<br>het werk</span>'
+    : onBreak ? '<span class="status break">Pauze</span>' : '<span class="status working">Aan het<br>werk</span>';
+  state.lastAnim = state.anim; state.anim = null;
+  const nr = String(state.shifts.length + (s ? 0 : 1)).padStart(3, '0');
 
   let action;
   if (!s) {
     action = `
       <div class="card">
+        <div class="card-head"><span>Dienst nr. ${nr}</span><span class="barcode"></span></div>
+        ${statusChip}
+        <p style="margin:0 120px 16px 0">Begin je met werken? Druk op inchecken.</p>
         <button class="big-btn in" data-act="checkin">
           <span><span class="lbl">Inchecken</span><small>Start je dienst nu</small></span>
           <span class="arrow" aria-hidden="true">→</span>
@@ -241,22 +268,23 @@ function renderToday() {
     const w = wage(s);
     action = `
       <div class="card">
+        <div class="card-head"><span>Dienst nr. ${nr}</span><span class="barcode"></span></div>
+        ${statusChip}
         <div class="eyebrow">${onBreak ? 'Gewerkt · staat stil tijdens pauze' : 'Gewerkte tijd'}</div>
         <div class="timer num" data-live="paid">${fTimerHtml(paidMs(s))}</div>
-        <div class="facts" style="margin-top:14px">
-          <div class="fact"><div class="k">Begin</div><div class="v num">${startLabel}</div></div>
-          <div class="fact"><div class="k">Pauze</div><div class="v num" data-live="break">${fDur(breakMs(s))}</div></div>
-          <div class="fact"><div class="k">Tot nu</div><div class="v num" data-live="wage">${w != null ? fEuro(w) : '–'}</div></div>
+        <div class="facts">
+          <div class="fact"><span>Begin</span><span class="v num">${startLabel}</span></div>
+          <div class="fact"><span>Pauze</span><span class="v num" data-live="break">${fDur(breakMs(s))}</span></div>
+          <div class="fact"><span>Tot nu</span><span class="v num" data-live="wage">${w != null ? fEuro(w) : '–'}</span></div>
         </div>
-        <div class="perf"></div>
         <label class="switch-row">
           <span><span class="t">Rijkosten</span><br><span class="s">${hasTravel() ? fEuro(state.settings.travel) + ' voor deze dienst' : 'Stel een bedrag in bij Instellingen'}</span></span>
           <span class="switch"><input type="checkbox" id="travel-toggle" ${travel(s) ? 'checked' : ''} aria-label="Rijkosten voor deze dienst"><span class="track"></span></span>
         </label>
-        <div class="btn-row" style="margin:12px 0 10px">
+        <div class="btn-row" style="margin:14px 0 14px">
           ${onBreak
-            ? '<button class="btn primary block" data-act="stopbreak">▶︎  Pauze stoppen</button>'
-            : '<button class="btn amber block" data-act="startbreak">❚❚  Pauze starten</button>'}
+            ? '<button class="btn primary block" data-act="stopbreak">Pauze stoppen</button>'
+            : '<button class="btn amber block" data-act="startbreak">Pauze starten</button>'}
         </div>
         <button class="big-btn out" data-act="checkout">
           <span><span class="lbl">Uitchecken</span><small>Rond je dienst af</small></span>
@@ -273,19 +301,19 @@ function renderToday() {
     const dayLabel = dateKey(st) === dateKey(now) ? 'Vandaag' : dateKey(st) === dateKey(addDays(now, 1)) ? 'Morgen' : capital(fLongDate(st));
     npHtml = `
       <div class="card flat">
-        <div class="eyebrow" style="margin-bottom:10px">Volgende dienst</div>
+        <div class="card-head"><span>Volgende dienst</span><span>${isNow ? 'Nu' : 'Gepland'}</span></div>
         <div class="next">
-          <span class="pin" aria-hidden="true"></span>
+          <span class="pin" aria-hidden="true"><span>${fShortDay(st)}</span><b>${st.getDate()}</b></span>
           <div>
             <div class="when">${dayLabel}</div>
             <div class="muted num small">${fTime(np.start)} – ${fTime(np.end)}${np.overnight ? ' (volgende dag)' : ''} · ${fDur(np.end - np.start)} uur</div>
           </div>
-          <span class="tag">${isNow ? 'Nu' : 'Gepland'}</span>
+          <span></span>
         </div>
       </div>`;
   } else {
     npHtml = `
-      <div class="card flat" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div><div class="eyebrow">Volgende dienst</div><div class="muted small" style="margin-top:4px">Nog niets ingepland.</div></div>
         <button class="btn small" data-go="schedule">Plannen</button>
       </div>`;
@@ -293,16 +321,11 @@ function renderToday() {
 
   const showInstall = !isStandalone() && !state.settings.installHintDismissed;
   el.innerHTML = `
-    <div class="hero">
-      <div class="top">
-        <div class="hello">Hoi Sven <span class="wave">👋</span></div>
-      </div>
-      <div class="sub">
-        <div class="date">${capital(fLongDate(now))}</div>
-        ${statusChip}
-      </div>
-      <div class="scene ${sceneCls}"><div class="skyline"></div>${VAN}<div class="road"></div></div>
+    <div class="greet">
+      <h1>Hoi Sven <span class="wave">👋</span></h1>
+      <div class="date">${fLongDate(now)}</div>
     </div>
+    ${sceneHtml([!s ? 'idle' : onBreak ? 'resting' : 'walking', state.lastAnim || ''].join(' '))}
     ${!hasRate() ? `
       <div class="notice">
         <div class="grow"><b>Vul je uurloon in</b><br><span class="small">Dan rekent de app je verwachte bruto loon uit.</span></div>
@@ -326,7 +349,7 @@ function monthCardInner() {
   const boxes = monthShifts.slice(-18).map((s) => `<i class="box${s.end == null ? ' live' : ''}"></i>`).join('');
   return `
     <div class="card-head">
-      <div><div class="eyebrow">Deze maand</div><div class="display" style="font-size:22px;font-weight:750">${capital(fMonth(now))}</div></div>
+      <span>Deze maand · ${fMonth(now)}</span>
       <div class="stack" aria-label="${plural(t.count, 'dienst', 'diensten')}">${boxes}</div>
     </div>
     <div class="stats">

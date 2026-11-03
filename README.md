@@ -42,4 +42,4 @@ instellingen staan in IndexedDB en blijven bij een update gewoon bewaard.
 - Het bedrag is een indicatie van het bruto loon, exclusief toeslagen, vakantiegeld en inhoudingen.
 
 ## Lettertypes
-`fonts/` bevat Bricolage Grotesque en DM Sans (SIL Open Font License, zie de OFL-bestanden). Ze staan in de app zelf, zodat ze ook offline werken.
+`fonts/` bevat Rubik en Courier Prime (SIL Open Font License, zie de OFL-bestanden). Ze staan in de app zelf, zodat ze ook offline werken.
