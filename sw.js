@@ -1,7 +1,7 @@
 // Service worker voor Sven z'n uren.
 // Slaat alleen de app-bestanden op. Gegevens (diensten, rooster, instellingen)
 // staan in IndexedDB en worden door een update NOOIT aangeraakt.
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const CACHE = 'sven-uren-' + VERSION;
 const FILES = [
   './',
@@ -16,7 +16,11 @@ const FILES = [
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
   './icons/favicon-32.png',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './fonts/bricolage.woff2',
+  './fonts/dmsans-400.woff2',
+  './fonts/dmsans-500.woff2',
+  './fonts/dmsans-700.woff2'
 ];
 
 self.addEventListener('install', (event) => {

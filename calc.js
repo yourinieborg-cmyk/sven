@@ -33,14 +33,21 @@ export function isOnBreak(shift) {
   return !!(shift && shift.end == null && (shift.breaks || []).some((b) => b.end == null));
 }
 
+// Rijkosten van een dienst: alleen als ze voor die dienst zijn aangezet.
+export function travel(shift) {
+  return typeof shift.travel === 'number' && shift.travel > 0 ? shift.travel : 0;
+}
+
 export function totals(shifts, now = Date.now()) {
-  let ms = 0, money = 0, missingRate = 0;
+  let ms = 0, money = 0, missingRate = 0, travelSum = 0, travelCount = 0;
   for (const s of shifts) {
     ms += paidMs(s, now);
+    const t = travel(s);
+    if (t) { travelSum += t; travelCount++; }
     const w = wage(s, now);
     if (w == null) missingRate++; else money += w;
   }
-  return { ms, money, missingRate, count: shifts.length };
+  return { ms, money, missingRate, count: shifts.length, travel: travelSum, travelCount };
 }
 
 // ---- periodes (lokale tijd, week begint op maandag) ----

@@ -40,3 +40,6 @@ instellingen staan in IndexedDB en blijven bij een update gewoon bewaard.
 - Een dienst telt mee in de week/maand waarin hij begint. Diensten over middernacht worden als één dienst gerekend.
 - Geplande diensten (Rooster) tellen nooit mee als gewerkte uren.
 - Het bedrag is een indicatie van het bruto loon, exclusief toeslagen, vakantiegeld en inhoudingen.
+
+## Lettertypes
+`fonts/` bevat Bricolage Grotesque en DM Sans (SIL Open Font License, zie de OFL-bestanden). Ze staan in de app zelf, zodat ze ook offline werken.

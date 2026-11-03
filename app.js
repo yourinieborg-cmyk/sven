@@ -1,24 +1,25 @@
 import { db } from './db.js';
 import {
-  HOUR, MIN, breakMs, paidMs, wage, isOnBreak, totals,
-  startOfDay, startOfWeek, startOfMonth, addDays, addMonths, inRange, weekNumber,
+  HOUR, MIN, breakMs, paidMs, wage, travel, isOnBreak, totals,
+  startOfWeek, startOfMonth, addDays, addMonths, inRange, weekNumber,
   rangeFromInputs, toStamp, dateKey, timeKey
 } from './calc.js';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 // ---------- state ----------
 const state = {
   shifts: [],
   planned: [],
-  settings: { key: 'settings', rate: null, installHintDismissed: false },
+  settings: { key: 'settings', rate: null, travel: null, installHintDismissed: false },
   view: 'today',
   hours: { mode: 'week', anchor: new Date() },
   schedule: { month: startOfMonth(new Date()), selected: dateKey(new Date()) },
-  installEvent: null
+  installEvent: null,
+  anim: null // eenmalige animatie op het startscherm: 'arrive' of 'leave'
 };
 
-// ---------- formatting (nl-NL, 24 uur, euro) ----------
+// ---------- opmaak (nl-NL, 24 uur, euro) ----------
 const nf = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
 const fEuro = (n) => nf.format(n);
 const fLongDate = (d) => new Intl.DateTimeFormat('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
@@ -32,19 +33,21 @@ function fDur(ms) { // weergave afgerond op hele minuten
   const m = Math.round(ms / MIN);
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
-function fTimer(ms) {
+function fTimerHtml(ms) {
   const s = Math.floor(Math.max(0, ms) / 1000);
-  return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}<span class="sec">:${String(s % 60).padStart(2, '0')}</span>`;
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 const parseEuro = (v) => { const n = parseFloat(String(v).trim().replace(/\s|€/g, '').replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
-const fRateInput = (n) => (typeof n === 'number' ? String(n.toFixed(2)).replace('.', ',') : '');
+const fEuroInput = (n) => (typeof n === 'number' ? n.toFixed(2).replace('.', ',') : '');
 const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const hasRate = () => typeof state.settings.rate === 'number' && state.settings.rate > 0;
+const hasTravel = () => typeof state.settings.travel === 'number' && state.settings.travel > 0;
 const activeShift = () => state.shifts.find((s) => s.end == null) || null;
+const plural = (n, one, more) => `${n} ${n === 1 ? one : more}`;
 
-// ---------- data ----------
+// ---------- gegevens ----------
 async function loadAll() {
   const [shifts, planned, settings] = await Promise.all([db.all('shifts'), db.all('planned'), db.get('settings', 'settings')]);
   state.shifts = shifts;
@@ -60,14 +63,16 @@ function askPersist() {
   navigator.storage.persist().catch(() => {});
 }
 
-// ---------- check-in / pauze / check-out ----------
+// ---------- inchecken / pauze / uitchecken ----------
 async function checkIn() {
   await loadAll();
   if (activeShift()) { toast('Je bent al ingecheckt.'); return render(); }
-  const shift = { id: uid(), start: Date.now(), end: null, breaks: [], rate: hasRate() ? state.settings.rate : null, createdAt: Date.now() };
+  // Rijkosten staan bij elke nieuwe dienst standaard uit.
+  const shift = { id: uid(), start: Date.now(), end: null, breaks: [], rate: hasRate() ? state.settings.rate : null, travel: null, createdAt: Date.now() };
   const ok = await db.startShiftIfNone(shift);
   await loadAll();
   askPersist();
+  if (ok) state.anim = 'arrive';
   toast(ok ? 'Ingecheckt om ' + fTime(shift.start) + '. Succes!' : 'Je bent al ingecheckt.');
   render();
 }
@@ -98,14 +103,36 @@ async function checkOut() {
   s.end = now;
   await saveShift(s);
   const w = wage(s);
-  toast(`Uitgecheckt. ${fDur(paidMs(s))} uur${w != null ? ' · ' + fEuro(w) : ''}`, {
+  state.anim = 'leave';
+  stamp(fDur(paidMs(s)) + ' uur');
+  toast(`Uitgecheckt. ${fDur(paidMs(s))} uur${w != null ? ' · ' + fEuro(w + travel(s)) : ''}`, {
     label: 'Ongedaan maken',
     run: async () => { await db.put('shifts', before); await loadAll(); render(); }
   });
   render();
 }
+async function toggleTravel(on) {
+  await loadAll();
+  const s = activeShift();
+  if (!s) return render();
+  if (on && !hasTravel()) {
+    toast('Stel eerst je standaard rijkosten in bij Instellingen.');
+    return render();
+  }
+  await saveShift({ ...s, travel: on ? state.settings.travel : null });
+  renderTodayMonth();
+}
 
-// ---------- rendering ----------
+function stamp(text) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const el = document.createElement('div');
+  el.className = 'stamp';
+  el.innerHTML = `<div><span class="ck">✓</span>Klaar!<div style="font-size:15px;font-family:var(--body);font-weight:700;margin-top:4px">${esc(text)}</div></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1900);
+}
+
+// ---------- weergave ----------
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -117,6 +144,11 @@ function render() {
     if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
   ({ today: renderToday, hours: renderHours, schedule: renderSchedule, settings: renderSettings })[state.view]();
+  stagger($('#view-' + state.view));
+}
+function stagger(root) {
+  [...root.children].forEach((c, i) => c.style.setProperty('--i', i));
+  $$('.list', root).forEach((l) => [...l.children].forEach((c, i) => c.style.setProperty('--i', Math.min(i, 10))));
 }
 
 function go(view) { state.view = view; render(); window.scrollTo(0, 0); }
@@ -133,44 +165,87 @@ function nextPlanned() {
 function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
 function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
 
+const VAN = `
+<svg class="van" viewBox="0 0 120 72" aria-hidden="true">
+  <circle class="puff" cx="6" cy="54" r="5" fill="#ffffff"/>
+  <circle class="puff" cx="6" cy="54" r="4" fill="#ffffff"/>
+  <g class="van-body">
+    <rect x="10" y="12" width="66" height="42" rx="7" fill="#ffffff"/>
+    <rect x="10" y="41" width="66" height="5" fill="#3ddc97"/>
+    <rect x="31" y="19" width="22" height="17" rx="2.5" fill="#c8904f"/>
+    <rect x="40" y="19" width="4" height="17" fill="#e9c690"/>
+    <path d="M78 24h17c3 0 5 1.5 6.5 4l6 10c1 1.6 1.5 3.4 1.5 5.2V50a4 4 0 0 1-4 4H78z" fill="#3ddc97"/>
+    <path d="M84 28h10c1.6 0 2.8.7 3.6 2l4.2 7H84z" fill="#cfeee0"/>
+    <rect x="104" y="44" width="5" height="4" rx="1.5" fill="#ffd28d"/>
+    <text class="zz" x="96" y="14" font-size="12" font-weight="700" fill="#ffffff" font-family="sans-serif">z</text>
+  </g>
+  <g class="wheel"><circle cx="30" cy="56" r="9.5" fill="#0b1a33"/><circle cx="30" cy="56" r="4.2" fill="#dfe6f0"/><rect x="29" y="47.5" width="2" height="5" fill="#dfe6f0"/></g>
+  <g class="wheel"><circle cx="92" cy="56" r="9.5" fill="#0b1a33"/><circle cx="92" cy="56" r="4.2" fill="#dfe6f0"/><rect x="91" y="47.5" width="2" height="5" fill="#dfe6f0"/></g>
+</svg>`;
+
+const EMPTY_BOX = `
+<svg viewBox="0 0 96 80" aria-hidden="true">
+  <ellipse cx="48" cy="74" rx="34" ry="4" fill="#12305a" opacity=".08"/>
+  <path d="M18 34h60v34a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4z" fill="#c8904f"/>
+  <rect x="43" y="34" width="10" height="38" fill="#e9c690"/>
+  <path d="M18 34l10-12h40l10 12z" fill="#a8743b"/>
+  <path class="lid" d="M18 34L6 22l12-10 10 10z" fill="#d9a465"/>
+  <path d="M78 34l12-12-12-10-10 10z" fill="#d9a465"/>
+</svg>`;
+
+function monthTotals() {
+  const now = new Date();
+  return totals(state.shifts.filter((x) => inRange(x, startOfMonth(now), addMonths(startOfMonth(now), 1))));
+}
+
 function renderToday() {
   const el = $('#view-today');
   const now = new Date();
   const s = activeShift();
   const onBreak = isOnBreak(s);
-  const monthShifts = state.shifts.filter((x) => inRange(x, startOfMonth(now), addMonths(startOfMonth(now), 1)));
-  const t = totals(monthShifts);
   const np = nextPlanned();
 
-  let statusCard;
+  const statusChip = !s ? '<span class="status">Niet aan het werk</span>'
+    : onBreak ? '<span class="status break">Pauze</span>' : '<span class="status working">Aan het werk</span>';
+  const sceneCls = [s && !onBreak ? 'driving' : 'parked', state.anim || ''].join(' ');
+  state.anim = null;
+
+  let action;
   if (!s) {
-    statusCard = `
+    action = `
       <div class="card">
-        <span class="status idle">Niet aan het werk</span>
-        <p class="muted" style="margin:12px 0 16px">Begin je met werken? Tik op inchecken.</p>
-        <button class="big-btn in" data-act="checkin">Inchecken<small>Start je dienst nu</small></button>
+        <button class="big-btn in" data-act="checkin">
+          <span><span class="lbl">Inchecken</span><small>Start je dienst nu</small></span>
+          <span class="arrow" aria-hidden="true">→</span>
+        </button>
       </div>`;
   } else {
     const startD = new Date(s.start);
-    const startLabel = dateKey(startD) === dateKey(now) ? fTime(startD) : `${fShortDay(startD)} ${fDayMonth(startD)}, ${fTime(startD)}`;
-    const openBreak = onBreak ? s.breaks.find((b) => b.end == null) : null;
-    statusCard = `
+    const startLabel = dateKey(startD) === dateKey(now) ? fTime(startD) : `${fShortDay(startD)} ${fTime(startD)}`;
+    const w = wage(s);
+    action = `
       <div class="card">
-        <span class="status ${onBreak ? 'break' : 'working'}">${onBreak ? 'Pauze' : 'Aan het werk'}</span>
-        <div class="muted small" style="margin-top:14px">${onBreak ? 'Gewerkte tijd (staat stil tijdens pauze)' : 'Gewerkte tijd'}</div>
-        <div class="timer num" data-live="paid">${fTimer(paidMs(s))}</div>
-        <div style="margin:12px 0 14px">
-          <div class="kv"><span>Ingecheckt om</span><span class="num">${startLabel}</span></div>
-          <div class="kv"><span>Pauze totaal</span><span class="num" data-live="break">${fDur(breakMs(s))}</span></div>
-          ${onBreak ? `<div class="kv"><span>Pauze sinds</span><span class="num">${fTime(openBreak.start)}</span></div>` : ''}
-          ${s.rate != null ? `<div class="kv"><span>Verwacht bruto tot nu</span><span class="num" data-live="wage">${fEuro(wage(s))}</span></div>` : ''}
+        <div class="eyebrow">${onBreak ? 'Gewerkt · staat stil tijdens pauze' : 'Gewerkte tijd'}</div>
+        <div class="timer num" data-live="paid">${fTimerHtml(paidMs(s))}</div>
+        <div class="facts" style="margin-top:14px">
+          <div class="fact"><div class="k">Begin</div><div class="v num">${startLabel}</div></div>
+          <div class="fact"><div class="k">Pauze</div><div class="v num" data-live="break">${fDur(breakMs(s))}</div></div>
+          <div class="fact"><div class="k">Tot nu</div><div class="v num" data-live="wage">${w != null ? fEuro(w) : '–'}</div></div>
         </div>
-        <div class="btn-row" style="margin-bottom:10px">
+        <div class="perf"></div>
+        <label class="switch-row">
+          <span><span class="t">Rijkosten</span><br><span class="s">${hasTravel() ? fEuro(state.settings.travel) + ' voor deze dienst' : 'Stel een bedrag in bij Instellingen'}</span></span>
+          <span class="switch"><input type="checkbox" id="travel-toggle" ${travel(s) ? 'checked' : ''} aria-label="Rijkosten voor deze dienst"><span class="track"></span></span>
+        </label>
+        <div class="btn-row" style="margin:12px 0 10px">
           ${onBreak
-            ? `<button class="btn primary block" data-act="stopbreak">▶︎ Pauze stoppen</button>`
-            : `<button class="btn amber block" data-act="startbreak">⏸ Pauze starten</button>`}
+            ? '<button class="btn primary block" data-act="stopbreak">▶︎  Pauze stoppen</button>'
+            : '<button class="btn amber block" data-act="startbreak">❚❚  Pauze starten</button>'}
         </div>
-        <button class="big-btn out" data-act="checkout">Uitchecken<small>Rond je dienst af</small></button>
+        <button class="big-btn out" data-act="checkout">
+          <span><span class="lbl">Uitchecken</span><small>Rond je dienst af</small></span>
+          <span class="arrow" aria-hidden="true">✓</span>
+        </button>
         <button class="btn ghost block small" data-act="edit-active" style="margin-top:6px">Begintijd aanpassen</button>
       </div>`;
   }
@@ -182,65 +257,89 @@ function renderToday() {
     const dayLabel = dateKey(st) === dateKey(now) ? 'Vandaag' : dateKey(st) === dateKey(addDays(now, 1)) ? 'Morgen' : capital(fLongDate(st));
     npHtml = `
       <div class="card flat">
-        <div class="card-title">Volgende geplande dienst</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div class="eyebrow" style="margin-bottom:10px">Volgende dienst</div>
+        <div class="next">
+          <span class="pin" aria-hidden="true"></span>
           <div>
-            <div style="font-weight:700;font-size:18px">${dayLabel}${isNow ? ' <span class="tag">nu volgens rooster</span>' : ''}</div>
-            <div class="muted num">${fTime(np.start)} – ${fTime(np.end)}${np.overnight ? ' (volgende dag)' : ''} · ${fDur(np.end - np.start)} uur</div>
+            <div class="when">${dayLabel}</div>
+            <div class="muted num small">${fTime(np.start)} – ${fTime(np.end)}${np.overnight ? ' (volgende dag)' : ''} · ${fDur(np.end - np.start)} uur</div>
           </div>
-          <span class="tag">Gepland</span>
+          <span class="tag">${isNow ? 'Nu' : 'Gepland'}</span>
         </div>
       </div>`;
   } else {
     npHtml = `
-      <div class="card flat">
-        <div class="card-title">Volgende geplande dienst</div>
-        <p class="muted" style="margin:0 0 10px">Nog niets ingepland.</p>
-        <button class="btn small" data-go="schedule">Dienst plannen</button>
+      <div class="card flat" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div><div class="eyebrow">Volgende dienst</div><div class="muted small" style="margin-top:4px">Nog niets ingepland.</div></div>
+        <button class="btn small" data-go="schedule">Plannen</button>
       </div>`;
   }
 
   const showInstall = !isStandalone() && !state.settings.installHintDismissed;
   el.innerHTML = `
-    <div class="hello">Hoi Sven 👋</div>
-    <p class="muted" style="margin-bottom:16px">${capital(fLongDate(now))}</p>
+    <div class="hero">
+      <div class="top">
+        <div class="hello">Hoi Sven <span class="wave">👋</span></div>
+      </div>
+      <div class="sub">
+        <div class="date">${capital(fLongDate(now))}</div>
+        ${statusChip}
+      </div>
+      <div class="scene ${sceneCls}"><div class="skyline"></div>${VAN}<div class="road"></div></div>
+    </div>
     ${!hasRate() ? `
       <div class="notice">
-        <div class="grow"><b>Vul je uurloon in</b><br><span class="small">Dan kan de app je verwachte bruto loon uitrekenen.</span></div>
+        <div class="grow"><b>Vul je uurloon in</b><br><span class="small">Dan rekent de app je verwachte bruto loon uit.</span></div>
         <button class="btn small navy" data-go="settings">Instellen</button>
       </div>` : ''}
     ${showInstall ? `
       <div class="notice info">
-        <div class="grow"><b>Zet de app op je beginscherm</b><br><span class="small">Dan open je hem met één tik, net als een gewone app.</span></div>
-        <button class="btn small" data-act="install-help">Hoe?</button>
+        <div class="grow"><b>Zet de app op je beginscherm</b><br><span class="small">Dan open je hem met één tik.</span></div>
+        <button class="btn small navy" data-act="install-help">Hoe?</button>
       </div>` : ''}
-    ${statusCard}
+    ${action}
     ${npHtml}
-    <div class="card">
-      <div class="card-title">Deze maand · ${fMonth(now)}</div>
-      <div class="stats">
-        <div class="stat"><div class="label">Gewerkte uren</div><div class="value num" data-live="month-hours">${fDur(t.ms)}</div></div>
-        <div class="stat"><div class="label">Verwacht bruto loon</div><div class="value green num" data-live="month-wage">${hasRate() || t.money > 0 ? fEuro(t.money) : '–'}</div></div>
-      </div>
-      ${t.missingRate ? `<p class="hint warn" style="margin:10px 0 0">${t.missingRate} ${t.missingRate === 1 ? 'dienst heeft' : 'diensten hebben'} nog geen uurloon en ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee in het loon.</p>` : ''}
-      <p class="disclaimer">Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>
-    </div>
-    ${state.shifts.length === 0 && !s ? `<p class="muted small" style="text-align:center">Nog geen diensten geregistreerd. Je eerste dienst verschijnt hier zodra je incheckt.</p>` : ''}
+    <div class="card tape" id="month-card">${monthCardInner()}</div>
   `;
 }
 
+function monthCardInner() {
+  const now = new Date();
+  const t = monthTotals();
+  const monthShifts = state.shifts.filter((x) => inRange(x, startOfMonth(now), addMonths(startOfMonth(now), 1))).sort((a, b) => a.start - b.start);
+  const boxes = monthShifts.slice(-18).map((s) => `<i class="box${s.end == null ? ' live' : ''}"></i>`).join('');
+  return `
+    <div class="card-head">
+      <div><div class="eyebrow">Deze maand</div><div class="display" style="font-size:22px;font-weight:750">${capital(fMonth(now))}</div></div>
+      <div class="stack" aria-label="${plural(t.count, 'dienst', 'diensten')}">${boxes}</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="label">Gewerkte uren</div><div class="value num" data-live="month-hours">${fDur(t.ms)}</div></div>
+      <div class="stat"><div class="label">Verwacht bruto loon</div><div class="value green num" data-live="month-wage">${hasRate() || t.money > 0 ? fEuro(t.money) : '–'}</div></div>
+    </div>
+    ${t.travel > 0 ? `
+      <div class="sum-lines">
+        <div class="sum-line"><span>Rijkosten (${plural(t.travelCount, 'dienst', 'diensten')})</span><b>${fEuro(t.travel)}</b></div>
+        <div class="sum-line total"><span>Samen</span><b data-live="month-total">${fEuro(t.money + t.travel)}</b></div>
+      </div>` : ''}
+    ${t.missingRate ? `<p class="hint warn" style="margin:10px 0 0">${plural(t.missingRate, 'dienst heeft', 'diensten hebben')} nog geen uurloon en ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee.</p>` : ''}
+    ${t.count === 0 ? '<p class="muted small" style="margin:10px 0 0">Nog geen diensten deze maand. Ze verschijnen hier zodra je incheckt.</p>' : ''}
+    <p class="disclaimer">Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>`;
+}
+function renderTodayMonth() { const c = $('#month-card'); if (c) c.innerHTML = monthCardInner(); }
+
 function updateLive() {
-  if (state.view !== 'today') return;
+  if (state.view !== 'today' || document.hidden) return;
   const s = activeShift();
   if (!s) return;
-  const set = (k, v) => { const e = document.querySelector(`[data-live="${k}"]`); if (e) e.textContent = v; };
-  set('paid', fTimer(paidMs(s)));
+  const set = (k, v, html) => { const e = document.querySelector(`[data-live="${k}"]`); if (e) e[html ? 'innerHTML' : 'textContent'] = v; };
+  set('paid', fTimerHtml(paidMs(s)), true);
   set('break', fDur(breakMs(s)));
   const w = wage(s); if (w != null) set('wage', fEuro(w));
-  const now = new Date();
-  const t = totals(state.shifts.filter((x) => inRange(x, startOfMonth(now), addMonths(startOfMonth(now), 1))));
+  const t = monthTotals();
   set('month-hours', fDur(t.ms));
   if (hasRate() || t.money > 0) set('month-wage', fEuro(t.money));
+  set('month-total', fEuro(t.money + t.travel));
 }
 
 function shiftRow(s) {
@@ -249,15 +348,16 @@ function shiftRow(s) {
   const endD = live ? null : new Date(s.end);
   const overnight = endD && dateKey(endD) !== dateKey(st);
   const w = wage(s);
+  const tr = travel(s);
   return `
     <button class="shift${live ? ' live' : ''}" data-shift="${esc(s.id)}">
       <div class="date-badge"><b>${st.getDate()}</b><span>${fShortDay(st)}</span></div>
       <div class="main">
-        <div class="t num">${fTime(st)} – ${live ? '<span class="tag green">bezig</span>' : fTime(endD) + (overnight ? ' <span class="tag">+1 dag</span>' : '')}</div>
-        <div class="s num">Pauze ${fDur(breakMs(s))} · ${s.rate != null ? fEuro(s.rate) + '/u' : '<span style="color:#8a5500">geen uurloon</span>'}</div>
+        <div class="t num">${fTime(st)} – ${live ? '<span class="tag green">bezig</span>' : fTime(endD) + (overnight ? ' <span class="tag">+1</span>' : '')}</div>
+        <div class="s num">Pauze ${fDur(breakMs(s))} · ${s.rate != null ? fEuro(s.rate) + '/u' : '<span style="color:#8a5500">geen uurloon</span>'}${tr ? ' · rijk. ' + fEuro(tr) : ''}</div>
       </div>
       <div class="right">
-        <div class="h num">${fDur(paidMs(s))} u</div>
+        <div class="h num">${fDur(paidMs(s))}</div>
         <div class="w num">${w != null ? fEuro(w) : '–'}</div>
       </div>
     </button>`;
@@ -274,14 +374,14 @@ function renderHours() {
   } else {
     from = startOfMonth(anchor); to = addMonths(from, 1);
     label = capital(fMonthYear(from));
-    sub = '';
+    sub = plural(state.shifts.filter((s) => inRange(s, from, to)).length, 'dienst', 'diensten');
   }
   const list = state.shifts.filter((s) => inRange(s, from, to)).sort((a, b) => b.start - a.start);
   const t = totals(list);
 
   let listHtml = '';
   if (!list.length) {
-    listHtml = `<div class="empty"><span class="emoji">🗓️</span>Geen gewerkte diensten in deze ${mode === 'week' ? 'week' : 'maand'}.<br><span class="small">Vergeten in te checken? Voeg de dienst hierboven toe met <b>+ Dienst</b>.</span></div>`;
+    listHtml = `<div class="empty">${EMPTY_BOX}<b style="color:var(--navy)">Nog niets deze ${mode === 'week' ? 'week' : 'maand'}</b><br><span class="small">Vergeten in te checken? Tik op <b>+ Dienst</b>.</span></div>`;
   } else if (mode === 'month') {
     const groups = new Map();
     for (const s of list) {
@@ -291,7 +391,7 @@ function renderHours() {
     }
     for (const [k, items] of groups) {
       const gt = totals(items);
-      listHtml += `<div class="muted small" style="display:flex;justify-content:space-between;margin:8px 4px 2px"><b>Week ${weekNumber(new Date(k))}</b><span class="num">${fDur(gt.ms)} u · ${fEuro(gt.money)}</span></div>`;
+      listHtml += `<div class="group-head"><b>Week ${weekNumber(new Date(k))}</b><span class="num">${fDur(gt.ms)} uur · ${fEuro(gt.money)}</span></div>`;
       listHtml += `<div class="list">${items.map(shiftRow).join('')}</div>`;
     }
   } else {
@@ -300,23 +400,27 @@ function renderHours() {
 
   el.innerHTML = `
     <div class="page-head"><h1>Uren</h1><button class="btn small navy" data-act="add-shift">+ Dienst</button></div>
-    <div class="seg" role="tablist">
-      <button class="${mode === 'week' ? 'on' : ''}" data-mode="week">Week</button>
-      <button class="${mode === 'month' ? 'on' : ''}" data-mode="month">Maand</button>
+    <div class="seg ${mode === 'month' ? 'month' : ''}" role="tablist">
+      <button data-mode="week" aria-selected="${mode === 'week'}">Week</button>
+      <button data-mode="month" aria-selected="${mode === 'month'}">Maand</button>
     </div>
     <div class="period">
       <button class="icon-btn" data-period="-1" aria-label="Vorige">‹</button>
-      <div class="label">${label}${sub ? `<small>${sub}</small>` : ''}</div>
+      <div class="label">${label}<small>${sub}</small></div>
       <button class="icon-btn" data-period="1" aria-label="Volgende">›</button>
     </div>
-    <div class="card">
+    <div class="card tape">
       <div class="stats">
         <div class="stat"><div class="label">Betaalde uren</div><div class="value num">${fDur(t.ms)}</div></div>
         <div class="stat"><div class="label">Verwacht bruto loon</div><div class="value green num">${fEuro(t.money)}</div></div>
       </div>
-      <p class="muted small" style="margin:8px 0 0">${t.count} ${t.count === 1 ? 'dienst' : 'diensten'}, pauzes zijn eraf gehaald.</p>
-      ${t.missingRate ? `<p class="hint warn" style="margin:6px 0 0">${t.missingRate} ${t.missingRate === 1 ? 'dienst zonder' : 'diensten zonder'} uurloon ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee in het loon. Tik erop om een uurloon in te vullen.</p>` : ''}
-      <p class="disclaimer">Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>
+      <div class="sum-lines">
+        <div class="sum-line"><span>Diensten</span><b>${t.count}</b></div>
+        ${t.travel > 0 ? `<div class="sum-line"><span>Rijkosten</span><b>${fEuro(t.travel)}</b></div>
+        <div class="sum-line total"><span>Samen</span><b>${fEuro(t.money + t.travel)}</b></div>` : ''}
+      </div>
+      ${t.missingRate ? `<p class="hint warn" style="margin:8px 0 0">${plural(t.missingRate, 'dienst', 'diensten')} zonder uurloon ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee in het loon. Tik erop om er een in te vullen.</p>` : ''}
+      <p class="disclaimer">Pauzes zijn eraf gehaald. Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>
     </div>
     ${listHtml}
     ${list.length ? '<p class="muted tiny" style="text-align:center;margin-top:14px">Tik op een dienst om hem aan te passen of te verwijderen.</p>' : ''}
@@ -328,10 +432,8 @@ function renderSchedule() {
   const { month, selected } = state.schedule;
   const todayK = dateKey(new Date());
   const gridStart = startOfWeek(month);
-  const plannedByDay = new Map();
-  for (const p of state.planned) plannedByDay.set(p.date, (plannedByDay.get(p.date) || 0) + 1);
-  const workedByDay = new Map();
-  for (const s of state.shifts) { const k = dateKey(s.start); workedByDay.set(k, (workedByDay.get(k) || 0) + 1); }
+  const plannedByDay = new Set(state.planned.map((p) => p.date));
+  const workedByDay = new Set(state.shifts.map((s) => dateKey(s.start)));
 
   let cells = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => `<div class="dow">${d}</div>`).join('');
   for (let i = 0; i < 42; i++) {
@@ -359,19 +461,21 @@ function renderSchedule() {
       <div class="legend"><span><i class="w"></i>Gewerkt</span><span><i class="p"></i>Gepland</span></div>
     </div>
 
-    <h2>${capital(fLongDate(selDate))}</h2>
-    <div class="list" style="margin-bottom:12px">
-      ${dayWorked.map(shiftRow).join('')}
-      ${dayPlanned.map(plannedRow).join('')}
-      ${!dayWorked.length && !dayPlanned.length ? '<p class="muted" style="margin:0 4px">Niets gepland of gewerkt op deze dag.</p>' : ''}
+    <div class="card flat">
+      <div class="card-head" style="margin-bottom:10px"><h2 style="margin:0">${capital(fLongDate(selDate))}</h2></div>
+      <div class="list" style="margin-bottom:12px">
+        ${dayWorked.map(shiftRow).join('')}
+        ${dayPlanned.map((p) => plannedRow(p)).join('')}
+        ${!dayWorked.length && !dayPlanned.length ? '<p class="muted small" style="margin:0">Niets gepland of gewerkt op deze dag.</p>' : ''}
+      </div>
+      <button class="btn block" data-act="add-plan-day">+ Dienst plannen op deze dag</button>
     </div>
-    <button class="btn block" data-act="add-plan-day" style="margin-bottom:22px">+ Dienst plannen op deze dag</button>
 
-    <h2>Komende diensten</h2>
+    <h2 style="margin:22px 4px 12px">Komende diensten</h2>
     <div class="list">
-      ${upcoming.length ? upcoming.map((x) => plannedRow(x.p, true)).join('') : '<div class="empty"><span class="emoji">📅</span>Nog geen diensten gepland.<br><span class="small">Zet je rooster erin, dan zie je op het startscherm wanneer je weer moet werken.</span></div>'}
+      ${upcoming.length ? upcoming.map((x) => plannedRow(x.p, true)).join('') : `<div class="empty">${EMPTY_BOX}<b style="color:var(--navy)">Nog niets gepland</b><br><span class="small">Zet je rooster erin, dan zie je op het startscherm wanneer je weer moet werken.</span></div>`}
     </div>
-    <p class="muted tiny" style="margin-top:14px">Geplande diensten tellen niet mee als gewerkte uren. Check in als je echt begint.</p>
+    <p class="muted tiny" style="margin:14px 4px 0">Geplande diensten tellen niet mee als gewerkte uren. Check in als je echt begint.</p>
   `;
 }
 
@@ -382,10 +486,10 @@ function plannedRow(p, showDate = false) {
     <button class="shift planned" data-plan="${esc(p.id)}">
       <div class="date-badge"><b>${st.getDate()}</b><span>${fShortDay(st)}</span></div>
       <div class="main">
-        <div class="t num">${fTime(r.start)} – ${fTime(r.end)}${r.overnight ? ' <span class="tag">+1 dag</span>' : ''}</div>
+        <div class="t num">${fTime(r.start)} – ${fTime(r.end)}${r.overnight ? ' <span class="tag">+1</span>' : ''}</div>
         <div class="s">${showDate ? capital(fLongDate(st)) : 'Gepland'}</div>
       </div>
-      <div class="right"><span class="tag">Gepland</span><div class="h num small" style="margin-top:4px">${fDur(r.end - r.start)} u</div></div>
+      <div class="right"><span class="tag">Gepland</span><div class="h num small" style="margin-top:4px;font-size:15px">${fDur(r.end - r.start)}</div></div>
     </button>`;
 }
 
@@ -395,19 +499,23 @@ async function renderSettings() {
   el.innerHTML = `
     <div class="page-head"><h1>Instellingen</h1></div>
 
-    <div class="card">
-      <h2>Uurloon</h2>
+    <div class="card tape">
+      <h2>Loon en rijkosten</h2>
       <label class="field"><span>Bruto uurloon</span>
-        <div class="euro-input"><input id="rate" class="input num" inputmode="decimal" autocomplete="off" placeholder="bijv. 12,50" value="${fRateInput(state.settings.rate)}"></div>
+        <div class="euro-input"><input id="rate" class="input num" inputmode="decimal" autocomplete="off" placeholder="bijv. 12,50" value="${fEuroInput(state.settings.rate)}"></div>
       </label>
-      <p class="hint">Staat op je contract of loonstrook. Een nieuw uurloon geldt alleen voor nieuwe diensten; eerdere diensten houden hun eigen uurloon.</p>
+      <p class="hint">Staat op je contract of loonstrook. Een nieuw uurloon geldt alleen voor nieuwe diensten.</p>
+      <label class="field"><span>Standaard rijkosten per dienst</span>
+        <div class="euro-input"><input id="travel" class="input num" inputmode="decimal" autocomplete="off" placeholder="bijv. 5,00" value="${fEuroInput(state.settings.travel)}"></div>
+      </label>
+      <p class="hint">Staat bij elke dienst standaard uit. Zet het per dienst aan met de schakelaar als je rijkosten hebt gemaakt.</p>
       <div id="rate-error" class="error" hidden></div>
-      <button class="btn primary block" data-act="save-rate">Uurloon opslaan</button>
+      <button class="btn primary block" data-act="save-rate">Opslaan</button>
     </div>
 
     <div class="card">
-      <h2>Zo wordt je loon berekend</h2>
-      <p class="small">Gewerkte tijd min onbetaalde pauzes, keer het uurloon dat bij die dienst hoort. De app rekent met de echte minuten en rondt alleen af bij het tonen.</p>
+      <h2>Zo wordt het berekend</h2>
+      <p class="small">Gewerkte tijd min onbetaalde pauzes, keer het uurloon dat bij die dienst hoort. De app rekent met de echte minuten en rondt alleen af bij het tonen. Rijkosten worden apart opgeteld.</p>
       <p class="small" style="margin:0"><b>Verwacht bruto loon</b> is een indicatie, exclusief toeslagen, vakantiegeld en inhoudingen. Wat je netto krijgt staat op je loonstrook.</p>
     </div>
 
@@ -429,7 +537,7 @@ async function renderSettings() {
       <p class="muted tiny" id="persist-status" style="margin:10px 0 0"></p>
     </div>
 
-    <p class="muted tiny" style="text-align:center">Sven z'n uren · versie ${APP_VERSION}<br>${state.shifts.length} diensten · ${state.planned.length} geplande diensten</p>
+    <p class="muted tiny" style="text-align:center">Sven z'n uren · versie ${APP_VERSION}<br>${plural(state.shifts.length, 'dienst', 'diensten')} · ${plural(state.planned.length, 'geplande dienst', 'geplande diensten')}</p>
   `;
   if (navigator.storage && navigator.storage.persisted) {
     try {
@@ -461,23 +569,20 @@ function installStepsHtml(ios) {
   return '<p class="small">Tik op <b>Installeren</b> om de app op je startscherm te zetten.</p>';
 }
 
-// ---------- bottom sheet & dialogs ----------
-let sheetCleanup = null;
+// ---------- sheet & dialogen ----------
 function openSheet(html, mount) {
   const sheet = $('#sheet');
   sheet.innerHTML = html;
   sheet.hidden = false;
   $('#sheet-backdrop').hidden = false;
   document.body.style.overflow = 'hidden';
-  sheetCleanup = mount ? mount(sheet) : null;
+  if (mount) mount(sheet);
 }
 function closeSheet() {
   $('#sheet').hidden = true;
   $('#sheet-backdrop').hidden = true;
   $('#sheet').innerHTML = '';
   document.body.style.overflow = '';
-  if (typeof sheetCleanup === 'function') sheetCleanup();
-  sheetCleanup = null;
 }
 function confirmDialog({ title, text, ok = 'OK', danger = false }) {
   return new Promise((resolve) => {
@@ -500,14 +605,15 @@ function confirmDialog({ title, text, ok = 'OK', danger = false }) {
 let toastTimer = null;
 function toast(msg, action) {
   const t = $('#toast');
-  t.innerHTML = esc(msg) + (action ? ` <button class="btn small" style="margin-left:10px;min-height:34px;padding:6px 10px;background:#fff;color:var(--navy)">${esc(action.label)}</button>` : '');
+  t.hidden = true; void t.offsetWidth; // animatie opnieuw starten
+  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button class="btn small" style="min-height:34px;padding:6px 10px;background:#fff;color:var(--navy)">${esc(action.label)}</button>` : '');
   t.hidden = false;
   if (action) t.querySelector('button').onclick = () => { t.hidden = true; action.run(); };
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, action ? 6000 : 2600);
 }
 
-// ---------- shift form (handmatig toevoegen / aanpassen) ----------
+// ---------- dienst toevoegen / aanpassen ----------
 function overlapping(start, end, ignoreId) {
   const now = Date.now();
   return state.shifts.find((s) => s.id !== ignoreId && start < (s.end ?? now) && end > s.start) || null;
@@ -515,13 +621,14 @@ function overlapping(start, end, ignoreId) {
 
 function openShiftForm(existing) {
   const isNew = !existing;
-  const now = new Date();
   const s = existing || null;
-  const date = s ? dateKey(s.start) : dateKey(now);
+  const date = s ? dateKey(s.start) : dateKey(new Date());
   const startT = s ? fTime(s.start) : '';
   const endT = s ? fTime(s.end) : '';
   const breakMin = s ? Math.round(breakMs(s) / MIN) : 0;
   const rate = s ? s.rate : (hasRate() ? state.settings.rate : null);
+  const trOn = s ? travel(s) > 0 : false; // nieuw: standaard uit
+  const trAmount = s && travel(s) ? s.travel : state.settings.travel;
 
   openSheet(`
     <h2>${isNew ? 'Dienst toevoegen' : 'Dienst aanpassen'}</h2>
@@ -533,13 +640,18 @@ function openShiftForm(existing) {
       </div>
       <p class="hint" id="overnight-hint" hidden>🌙 Eindtijd ligt vóór de begintijd, dus de dienst eindigt de volgende dag.</p>
       <div class="row2">
-        <label class="field"><span>Onbetaalde pauze</span><input class="input num" type="number" name="pause" min="0" step="1" inputmode="numeric" value="${breakMin}"></label>
-        <label class="field"><span>Uurloon</span><div class="euro-input"><input class="input num" name="rate" inputmode="decimal" placeholder="12,50" value="${fRateInput(rate)}"></div></label>
+        <label class="field"><span>Pauze (min)</span><input class="input num" type="number" name="pause" min="0" step="1" inputmode="numeric" value="${breakMin}"></label>
+        <label class="field"><span>Uurloon</span><div class="euro-input"><input class="input num" name="rate" inputmode="decimal" placeholder="12,50" value="${fEuroInput(rate)}"></div></label>
       </div>
-      <p class="hint">Pauze in minuten. Het uurloon wordt bij deze dienst bewaard.</p>
-      <div class="card flat" style="padding:12px 14px;margin-bottom:14px">
-        <div class="kv"><span>Betaalde tijd</span><span class="num" id="pv-hours">–</span></div>
-        <div class="kv"><span>Verwacht bruto loon</span><span class="num" id="pv-wage">–</span></div>
+      <label class="switch-row" style="margin-bottom:10px">
+        <span><span class="t">Rijkosten</span><br><span class="s">Voor deze dienst</span></span>
+        <span class="switch"><input type="checkbox" name="travelOn" ${trOn ? 'checked' : ''} aria-label="Rijkosten voor deze dienst"><span class="track"></span></span>
+      </label>
+      <label class="field" id="travel-field" ${trOn ? '' : 'hidden'}><span>Bedrag rijkosten</span><div class="euro-input"><input class="input num" name="travel" inputmode="decimal" placeholder="5,00" value="${fEuroInput(trAmount)}"></div></label>
+      <div class="preview">
+        <div class="sum-line"><span>Betaalde tijd</span><b id="pv-hours">–</b></div>
+        <div class="sum-line"><span>Verwacht bruto loon</span><b id="pv-wage">–</b></div>
+        <div class="sum-line" id="pv-travel-row" hidden><span>Rijkosten</span><b id="pv-travel">–</b></div>
       </div>
       <div class="error" id="form-error" hidden></div>
       <button class="btn primary block" type="submit">Opslaan</button>
@@ -554,13 +666,19 @@ function openShiftForm(existing) {
       const pause = pauseRaw === '' ? 0 : Number(pauseRaw);
       const rateRaw = String(f.get('rate') || '').trim();
       const r = rateRaw === '' ? null : parseEuro(rateRaw);
-      if (!d || !st || !en) return { incomplete: true, rate: r, pause };
+      const travelOn = f.get('travelOn') === 'on';
+      const travelAmt = travelOn ? parseEuro(f.get('travel') || '') : null;
+      const base = { pause, rate: r, travelOn, travelAmt };
+      if (!d || !st || !en) return { incomplete: true, ...base };
       // Ongewijzigde velden: houd de exacte geregistreerde tijdstempels (tot op de seconde).
-      if (s && d === date && st === startT && en === endT) return { start: s.start, end: s.end, overnight: dateKey(s.end) !== dateKey(s.start), pause, rate: r };
-      return { ...rangeFromInputs(d, st, en), pause, rate: r };
+      if (s && d === date && st === startT && en === endT) return { start: s.start, end: s.end, overnight: dateKey(s.end) !== dateKey(s.start), ...base };
+      return { ...rangeFromInputs(d, st, en), ...base };
     };
     const preview = () => {
       const v = read();
+      $('#travel-field', sheet).hidden = !v.travelOn;
+      $('#pv-travel-row', sheet).hidden = !v.travelOn;
+      $('#pv-travel', sheet).textContent = v.travelOn && v.travelAmt > 0 ? fEuro(v.travelAmt) : '–';
       $('#overnight-hint', sheet).hidden = !v.overnight;
       if (v.incomplete || !(v.pause >= 0)) { $('#pv-hours', sheet).textContent = '–'; $('#pv-wage', sheet).textContent = '–'; return; }
       const ms = Math.max(0, v.end - v.start - v.pause * MIN);
@@ -568,14 +686,16 @@ function openShiftForm(existing) {
       $('#pv-wage', sheet).textContent = v.rate != null && v.rate > 0 ? fEuro((ms / HOUR) * v.rate) : 'geen uurloon';
     };
     form.addEventListener('input', preview);
+    form.addEventListener('change', preview);
     preview();
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const v = read();
-      const err = (m) => { const x = $('#form-error', sheet); x.textContent = m; x.hidden = false; };
+      const err = (m) => { const x = $('#form-error', sheet); x.hidden = true; void x.offsetWidth; x.textContent = m; x.hidden = false; };
       if (v.incomplete) return err('Vul een datum, begintijd en eindtijd in.');
       if (!Number.isFinite(v.pause) || v.pause < 0 || !Number.isInteger(v.pause)) return err('Vul de pauze in als een heel aantal minuten (0 of meer).');
       if (v.rate !== null && !(v.rate > 0 && v.rate < 1000)) return err('Vul een geldig uurloon in, bijvoorbeeld 12,50. Of laat het leeg.');
+      if (v.travelOn && !(v.travelAmt > 0 && v.travelAmt < 1000)) return err('Vul een geldig bedrag voor de rijkosten in, of zet ze uit.');
       if (v.end - v.start > 24 * HOUR) return err('Een dienst kan niet langer dan 24 uur duren.');
       if (v.pause * MIN >= v.end - v.start) return err('De pauze is langer dan de dienst zelf.');
       if (v.end > Date.now()) return err('Deze dienst eindigt in de toekomst. Zet toekomstige diensten in het Rooster.');
@@ -586,8 +706,8 @@ function openShiftForm(existing) {
       next.start = v.start;
       next.end = v.end;
       next.rate = v.rate;
-      // Pauze: alleen vervangen als Sven het aantal minuten echt heeft veranderd.
-      // Zijn alleen uurloon of niets veranderd, dan blijven de precies geregistreerde pauzes staan.
+      next.travel = v.travelOn ? Math.round(v.travelAmt * 100) / 100 : null;
+      // Zijn de tijden en de pauze niet veranderd, dan blijven de precies geregistreerde pauzes staan.
       const timesSame = s && v.start === s.start && v.end === s.end;
       if (!s || v.pause !== breakMin || !timesSame) next.breakMs = v.pause * MIN;
       next.updatedAt = Date.now();
@@ -634,17 +754,17 @@ function openActiveForm() {
       const f = new FormData(e.target);
       const err = (m) => { const x = $('#form-error', sheet); x.textContent = m; x.hidden = false; };
       if (!f.get('date') || !f.get('start')) return err('Vul een datum en begintijd in.');
-      const start = toStamp(f.get('date'), f.get('start'));
+      // Ongewijzigd: exacte tijdstempel houden.
+      const start = (f.get('date') === dateKey(s.start) && f.get('start') === fTime(s.start)) ? s.start : toStamp(f.get('date'), f.get('start'));
       if (start > Date.now()) return err('De begintijd kan niet in de toekomst liggen.');
       if (Date.now() - start > 24 * HOUR) return err('De begintijd ligt meer dan 24 uur geleden.');
-      const ov = overlapping(start, Date.now(), s.id);
-      if (ov) return err('Deze begintijd overlapt met een eerdere dienst.');
+      if (overlapping(start, Date.now(), s.id)) return err('Deze begintijd overlapt met een eerdere dienst.');
       if ((s.breaks || []).some((b) => b.start < start)) return err('Er is al een pauze vóór deze begintijd geregistreerd.');
       await saveShift({ ...s, start, updatedAt: Date.now() });
       closeSheet(); toast('Begintijd aangepast.'); render();
     });
     $('[data-act="cancel-active"]', sheet).addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: 'Dienst annuleren?', text: 'De huidige dienst wordt verwijderd en telt niet mee. Weet je het zeker?', ok: 'Annuleren', danger: true });
+      const ok = await confirmDialog({ title: 'Dienst annuleren?', text: 'De huidige dienst wordt verwijderd en telt niet mee. Weet je het zeker?', ok: 'Ja, annuleren', danger: true });
       if (!ok) return;
       await db.del('shifts', s.id); await loadAll(); closeSheet(); toast('Dienst geannuleerd.'); render();
     });
@@ -697,31 +817,38 @@ function openPlanForm(existing, presetDate) {
   });
 }
 
-// ---------- instellingen: uurloon, export, import ----------
+// ---------- instellingen: uurloon, rijkosten, export, import ----------
 async function saveRate() {
-  const v = $('#rate').value;
-  const n = parseEuro(v);
   const errEl = $('#rate-error');
-  if (!(n > 0 && n < 1000)) { errEl.textContent = 'Vul een geldig bruto uurloon in, bijvoorbeeld 12,50.'; errEl.hidden = false; return; }
-  const rounded = Math.round(n * 100) / 100;
-  const changed = state.settings.rate !== rounded;
+  const fail = (m) => { errEl.hidden = true; void errEl.offsetWidth; errEl.textContent = m; errEl.hidden = false; };
+  const rateRaw = $('#rate').value.trim();
+  const travelRaw = $('#travel').value.trim();
+  const n = rateRaw === '' ? null : parseEuro(rateRaw);
+  const tr = travelRaw === '' ? null : parseEuro(travelRaw);
+  if (n !== null && !(n > 0 && n < 1000)) return fail('Vul een geldig bruto uurloon in, bijvoorbeeld 12,50.');
+  if (tr !== null && !(tr > 0 && tr < 1000)) return fail('Vul geldige rijkosten in, bijvoorbeeld 5,00. Of laat het leeg.');
+  const rounded = n === null ? null : Math.round(n * 100) / 100;
+  const rateChanged = state.settings.rate !== rounded;
   state.settings.rate = rounded;
+  state.settings.travel = tr === null ? null : Math.round(tr * 100) / 100;
   await saveSettings();
   askPersist();
-  // Lopende dienst zonder uurloon krijgt het nieuwe uurloon.
-  const a = activeShift();
-  if (a && a.rate == null) await db.put('shifts', { ...a, rate: rounded });
-  await loadAll();
-  const missing = state.shifts.filter((s) => s.rate == null);
-  if (missing.length) {
-    const ok = await confirmDialog({
-      title: 'Ook voor eerdere diensten?',
-      text: `${missing.length} ${missing.length === 1 ? 'dienst heeft' : 'diensten hebben'} nog geen uurloon. Wil je daar ${fEuro(rounded)} voor gebruiken? Diensten met een eigen uurloon blijven zoals ze zijn.`,
-      ok: 'Ja, toepassen'
-    });
-    if (ok) { for (const s of missing) await db.put('shifts', { ...s, rate: rounded }); await loadAll(); }
+  if (rounded !== null) {
+    // Lopende dienst zonder uurloon krijgt het nieuwe uurloon.
+    const a = activeShift();
+    if (a && a.rate == null) await db.put('shifts', { ...a, rate: rounded });
+    await loadAll();
+    const missing = state.shifts.filter((s) => s.rate == null);
+    if (missing.length) {
+      const ok = await confirmDialog({
+        title: 'Ook voor eerdere diensten?',
+        text: `${plural(missing.length, 'dienst heeft', 'diensten hebben')} nog geen uurloon. Wil je daar ${fEuro(rounded)} voor gebruiken? Diensten met een eigen uurloon blijven zoals ze zijn.`,
+        ok: 'Ja, toepassen'
+      });
+      if (ok) { for (const s of missing) await db.put('shifts', { ...s, rate: rounded }); await loadAll(); }
+    }
   }
-  toast(changed ? `Uurloon ${fEuro(rounded)} opgeslagen. Geldt voor nieuwe diensten.` : 'Uurloon opgeslagen.');
+  toast(rateChanged && rounded !== null ? `Opgeslagen. ${fEuro(rounded)} geldt voor nieuwe diensten.` : 'Opgeslagen.');
   render();
 }
 
@@ -759,13 +886,13 @@ async function importFile(file) {
   if (!validBackup(d)) { toast('Dit bestand is geen geldige reservekopie.'); return; }
   const ok = await confirmDialog({
     title: 'Reservekopie terugzetten?',
-    text: `In deze reservekopie staan ${d.shifts.length} diensten en ${d.planned.length} geplande diensten (gemaakt op ${fDateYear(new Date(d.exportedAt))}). <b>Alles wat nu in de app staat wordt vervangen.</b>`,
+    text: `In deze reservekopie staan ${plural(d.shifts.length, 'dienst', 'diensten')} en ${plural(d.planned.length, 'geplande dienst', 'geplande diensten')} (gemaakt op ${fDateYear(new Date(d.exportedAt))}). <b>Alles wat nu in de app staat wordt vervangen.</b>`,
     ok: 'Terugzetten', danger: true
   });
   if (!ok) return;
   const settings = (Array.isArray(d.settings) ? d.settings : []).filter((x) => x && x.key === 'settings');
   await db.replaceAll({ shifts: d.shifts, planned: d.planned, settings: settings.length ? settings : [{ key: 'settings', rate: null }] });
-  state.settings = { key: 'settings', rate: null, installHintDismissed: false };
+  state.settings = { key: 'settings', rate: null, travel: null, installHintDismissed: false };
   await loadAll();
   toast('Reservekopie teruggezet.');
   render();
@@ -790,7 +917,13 @@ document.addEventListener('click', async (e) => {
   if (g) return go(g.dataset.go);
 
   const m = e.target.closest('[data-mode]');
-  if (m) { state.hours.mode = m.dataset.mode; return render(); }
+  if (m) {
+    if (state.hours.mode === m.dataset.mode) return;
+    state.hours.mode = m.dataset.mode;
+    $('.seg')?.classList.toggle('month', state.hours.mode === 'month');
+    setTimeout(render, 160); // eerst het schuifje laten bewegen
+    return;
+  }
   const per = e.target.closest('[data-period]');
   if (per) {
     const n = Number(per.dataset.period);
@@ -841,9 +974,21 @@ document.addEventListener('click', async (e) => {
 });
 document.addEventListener('change', (e) => {
   if (e.target.id === 'import-file' && e.target.files[0]) { importFile(e.target.files[0]); e.target.value = ''; }
+  if (e.target.id === 'travel-toggle') toggleTravel(e.target.checked);
 });
 $('#sheet-backdrop').addEventListener('click', closeSheet);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
+
+// Niet inzoomen: knijpen en dubbeltikken blokkeren (naast de viewport-instelling).
+['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 320 && !e.target.closest('input, textarea, select')) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+document.addEventListener('dblclick', (e) => e.preventDefault());
 
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.installEvent = e; if (state.view === 'settings') render(); });
 
