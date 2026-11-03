@@ -67,6 +67,22 @@ function askPersist() {
 async function checkIn() {
   await loadAll();
   if (activeShift()) { toast('Je bent al ingecheckt.'); return render(); }
+  // Al eerder vandaag gewerkt? Dan gaat de laatste dienst van vandaag gewoon door.
+  // De tijd tussen uitchecken en opnieuw inchecken telt als onbetaalde pauze.
+  const now = Date.now();
+  const todayK = dateKey(now);
+  const prev = state.shifts
+    .filter((s) => s.end != null && s.end <= now && dateKey(s.start) === todayK)
+    .sort((a, b) => b.end - a.end)[0];
+  if (prev) {
+    const resumed = { ...prev, end: null, updatedAt: now };
+    resumed.breaks = [...(prev.breaks || []), { start: prev.end, end: now }];
+    await db.put('shifts', resumed);
+    await loadAll();
+    state.anim = 'arrive';
+    toast(`Je dienst van ${fTime(prev.start)} gaat verder. De tijd ertussen telt als pauze.`);
+    return render();
+  }
   // Rijkosten staan bij elke nieuwe dienst standaard uit.
   const shift = { id: uid(), start: Date.now(), end: null, breaks: [], rate: hasRate() ? state.settings.rate : null, travel: null, createdAt: Date.now() };
   const ok = await db.startShiftIfNone(shift);
@@ -709,7 +725,7 @@ function openShiftForm(existing) {
       next.travel = v.travelOn ? Math.round(v.travelAmt * 100) / 100 : null;
       // Zijn de tijden en de pauze niet veranderd, dan blijven de precies geregistreerde pauzes staan.
       const timesSame = s && v.start === s.start && v.end === s.end;
-      if (!s || v.pause !== breakMin || !timesSame) next.breakMs = v.pause * MIN;
+      if (!s || v.pause !== breakMin || !timesSame) { next.breakMs = v.pause * MIN; next.breaks = []; }
       next.updatedAt = Date.now();
       await saveShift(next);
       closeSheet();

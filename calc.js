@@ -3,12 +3,11 @@
 export const MIN = 60000;
 export const HOUR = 3600000;
 
-// Totale pauze van een dienst (ms). Een handmatig ingevulde pauze (breakMs)
-// gaat voor op de geregistreerde pauzes.
+// Totale pauze van een dienst (ms).
 export function breakMs(shift, now = Date.now()) {
-  if (typeof shift.breakMs === 'number') return Math.max(0, shift.breakMs);
+  // breakMs = handmatig ingevulde pauze; breaks = geregistreerde pauzes (komen erbij).
   const shiftEnd = shift.end ?? now;
-  let total = 0;
+  let total = typeof shift.breakMs === 'number' ? Math.max(0, shift.breakMs) : 0;
   for (const b of shift.breaks || []) {
     const s = Math.max(b.start, shift.start);
     const e = Math.min(b.end ?? now, shiftEnd);
