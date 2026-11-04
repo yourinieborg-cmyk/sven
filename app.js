@@ -261,12 +261,13 @@ function breakSceneHtml() {
         <path d="M16 62l-3 14" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
         <circle cx="20" cy="50" r="7" fill="#f1c9a0" stroke="#1d2b53" stroke-width="2"/>
         <path d="M13 49a7 7 0 0 1 14 0z" fill="#c8382e" stroke="#1d2b53" stroke-width="1.5"/><rect x="25" y="46.5" width="7" height="2.5" rx="1" fill="#c8382e"/>
-        <path d="M24 62L28 67L32 71" fill="none" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-          <animate attributeName="d" values="M24 62L28 67L32 71;M24 62L28 67L32 71;M24 62L32 65L27 55;M24 62L32 65L27 55;M24 62L28 67L32 71;M24 62L28 67L32 71" keyTimes="0;0.15;0.25;0.42;0.52;1" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1;0 0 1 1"/>
-        </path>
-        <g><path d="M32 71l5 -2" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="37.5" cy="68.8" r="1.4" fill="#e8742c"/>
-          <animateTransform attributeName="transform" type="translate" values="0 0;0 0;-5 -16;-5 -16;0 0;0 0" keyTimes="0;0.15;0.25;0.42;0.52;1" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1;0 0 1 1"/>
-        </g>
+        <g transform="translate(24 62)"><g class="ua">
+          <path d="M0 0L4 9" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
+          <g transform="translate(4 9)"><g class="fa">
+            <path d="M0 0L7 0" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
+            <path d="M7 0l5 -1" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="12.5" cy="-1.1" r="1.4" fill="#e8742c"/>
+          </g></g>
+        </g></g>
         <g class="smoke"><circle cx="30" cy="50" r="3" fill="#c9c3b8"/><circle cx="33" cy="45" r="4" fill="#d6d1c7"/><circle cx="31" cy="38" r="5" fill="#e3dfd7"/></g>
         <g class="wisp"><circle cx="38" cy="64" r="1.6" fill="#d6d1c7"/></g>
       </g></g>

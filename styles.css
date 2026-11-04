@@ -146,6 +146,11 @@ p { margin: 0 0 8px; }
 @keyframes drive { 0% { transform: none; } 12% { transform: translateX(-4px); } 100% { transform: translateX(200px); } }
 
 /* pauze buiten */
+.scene.resting .ua, .scene.resting .fa { transform-origin: 0 0; }
+.scene.resting .ua { animation: ua 4s ease-in-out infinite; }
+.scene.resting .fa { animation: fa 4s ease-in-out infinite; }
+@keyframes ua { 0%, 15%, 52%, 100% { transform: rotate(0deg); } 25%, 42% { transform: rotate(-60deg); } }
+@keyframes fa { 0%, 15%, 52%, 100% { transform: rotate(0deg); } 25%, 42% { transform: rotate(-70deg); } }
 .scene.resting .wisp circle { transform-box: fill-box; animation: wisp 2s ease-out infinite; }
 @keyframes wisp { 0% { opacity: .8; transform: none; } 100% { opacity: 0; transform: translate(3px, -14px) scale(2); } }
 .scene.resting .smoke circle { transform-box: fill-box; transform-origin: center; animation: smoke 4s ease-out infinite; opacity: 0; }
