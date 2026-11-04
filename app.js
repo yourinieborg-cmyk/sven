@@ -688,7 +688,7 @@ let toastTimer = null;
 function toast(msg, action) {
   const t = $('#toast');
   t.hidden = true; void t.offsetWidth; // animatie opnieuw starten
-  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button class="btn small" style="min-height:34px;padding:6px 10px;background:#fff;color:var(--navy)">${esc(action.label)}</button>` : '');
+  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button class="toast-btn">↺ ${esc(action.label)}</button>` : '');
   t.hidden = false;
   if (action) t.querySelector('button').onclick = () => { t.hidden = true; action.run(); };
   clearTimeout(toastTimer);
