@@ -102,7 +102,7 @@ p { margin: 0 0 8px; }
 .scene .walker, .scene .man, .scene .leg, .scene .wheel, .scene .van { transform-box: fill-box; }
 .scene .leg { transform-origin: 50% 0; }
 .scene .wheel { transform-origin: center; }
-.scene .walker { transform: translateX(150px); }
+.scene .walker { transform: translateX(150px); transform-origin: 50% 50%; }
 .scene.idle .walker { transform: translateX(196px); }
 .scene.idle .cart { opacity: 0; }
 .scene.walking .walker { animation: trip 12s linear infinite; }
@@ -118,7 +118,16 @@ p { margin: 0 0 8px; }
 .scene.leave .van { animation: drive 1.6s cubic-bezier(.6, 0, .8, .4) .2s both; }
 .scene.leave .van .wheel { animation: spin .4s linear infinite; }
  /* heen met volle kar, uitladen, bus rijdt weg, terug met lege kar */
-@keyframes trip { 0% { transform: translateX(-80px); } 40%, 46% { transform: translateX(178px); } 46.01% { transform: translateX(178px) scaleX(-1); } 80%, 100% { transform: translateX(-80px) scaleX(-1); } }
+@keyframes trip {
+  0% { transform: translateX(-80px) scaleX(1); animation-timing-function: ease-out; }
+  8% { transform: translateX(-30px) scaleX(1); animation-timing-function: linear; }
+  36% { transform: translateX(168px) scaleX(1); animation-timing-function: ease-out; }
+  40%, 44% { transform: translateX(178px) scaleX(1); animation-timing-function: ease-in-out; }
+  48% { transform: translateX(176px) scaleX(-1); animation-timing-function: ease-in; }
+  52% { transform: translateX(164px) scaleX(-1); animation-timing-function: linear; }
+  78% { transform: translateX(-40px) scaleX(-1); animation-timing-function: ease-in; }
+  84%, 100% { transform: translateX(-80px) scaleX(-1); }
+}
 @keyframes unload { 0%, 41% { opacity: 1; } 43%, 97% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes loadup { 0%, 41% { opacity: 0; transform: translateY(-8px); } 44%, 70% { opacity: 1; transform: none; } 71%, 100% { opacity: 0; } }
 @keyframes depart { 0%, 47% { transform: none; opacity: 1; } 60% { transform: translateX(210px); opacity: 1; } 61%, 84% { transform: translateX(210px); opacity: 0; } 85% { transform: translateX(-30px); opacity: 0; } 94%, 100% { transform: none; opacity: 1; } }

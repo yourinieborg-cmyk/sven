@@ -206,8 +206,10 @@ function sceneHtml(mode) {
       <rect x="0" y="112" width="360" height="12" fill="#dcc59d"/>
       <path class="floor" d="M-20 118h400" stroke="#1d2b53" stroke-width="2" stroke-dasharray="14 10"/>
       ${rack(8)}${rack(116)}
-      <g><rect x="226" y="14" width="130" height="98" fill="#efe2c8" stroke="#1d2b53" stroke-width="2.5"/>
-        <path d="M226 24h130M226 32h130M226 40h130" stroke="#1d2b53" stroke-width="1.5"/></g>
+      <g><rect x="226" y="14" width="140" height="98" fill="#f6ecd8"/>
+        <rect x="226" y="14" width="140" height="22" fill="#dcc59d"/>
+        <path d="M226 22h140M226 29h140" stroke="#1d2b53" stroke-width="1.5"/>
+        <path d="M226 112V14H366" fill="none" stroke="#1d2b53" stroke-width="3"/></g>
       <g class="van"><g transform="translate(236 44) scale(.95)">
         <rect x="10" y="12" width="66" height="42" rx="6" fill="#fbf4e6" stroke="#1d2b53" stroke-width="2.5"/>
         <rect x="10" y="40" width="66" height="5" fill="#1fae72"/>
