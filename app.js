@@ -325,8 +325,9 @@ function renderToday() {
   const showInstall = !isStandalone() && !state.settings.installHintDismissed;
   el.innerHTML = `
     <div class="greet">
+      <div class="greet-top"><span class="eyebrow">Sven z'n uren</span><span class="barcode light"></span></div>
       <h1>Hoi Sven <span class="wave">👋</span></h1>
-      <div class="date">${fLongDate(now)}</div>
+      <div class="date">${capital(fLongDate(now))}</div>
     </div>
     ${sceneHtml([!s ? 'idle' : onBreak ? 'resting' : 'walking', state.lastAnim || ''].join(' '))}
     ${!hasRate() ? `
