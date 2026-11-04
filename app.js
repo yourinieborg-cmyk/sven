@@ -313,6 +313,15 @@ function renderToday() {
         ${statusChip}
         <div class="eyebrow">${onBreak ? 'Gewerkt · staat stil tijdens pauze' : 'Gewerkte tijd'}</div>
         <div class="timer num" data-live="paid">${fTimerHtml(paidMs(s))}</div>
+        <button class="big-btn out" data-act="checkout" style="margin-top:16px">
+          <span><span class="lbl">Uitchecken</span><small>Rond je dienst af</small></span>
+          <span class="arrow" aria-hidden="true">✓</span>
+        </button>
+        <div class="btn-row" style="margin:12px 0 4px">
+          ${onBreak
+            ? '<button class="btn primary block" data-act="stopbreak">Pauze stoppen</button>'
+            : '<button class="btn amber block" data-act="startbreak">Pauze starten</button>'}
+        </div>
         <div class="facts">
           <div class="fact"><span>Begin</span><span class="v num">${startLabel}</span></div>
           <div class="fact"><span>Pauze</span><span class="v num" data-live="break">${fDur(breakMs(s))}</span></div>
@@ -322,15 +331,6 @@ function renderToday() {
           <span><span class="t">Rijkosten</span><br><span class="s">${hasTravel() ? fEuro(state.settings.travel) + ' voor deze dienst' : 'Stel een bedrag in bij Instellingen'}</span></span>
           <span class="switch"><input type="checkbox" id="travel-toggle" ${travel(s) ? 'checked' : ''} aria-label="Rijkosten voor deze dienst"><span class="track"></span></span>
         </label>
-        <button class="big-btn out" data-act="checkout">
-          <span><span class="lbl">Uitchecken</span><small>Rond je dienst af</small></span>
-          <span class="arrow" aria-hidden="true">✓</span>
-        </button>
-        <div class="btn-row" style="margin:16px 0 4px">
-          ${onBreak
-            ? '<button class="btn primary block" data-act="stopbreak">Pauze stoppen</button>'
-            : '<button class="btn amber block" data-act="startbreak">Pauze starten</button>'}
-        </div>
         <button class="btn ghost block small" data-act="edit-active" style="margin-top:6px">Begintijd aanpassen</button>
       </div>`;
   }
