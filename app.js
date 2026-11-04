@@ -194,6 +194,7 @@ const EMPTY_BOX = `
 // Tekening op het startscherm: een loods met stellingen, een bestelbus bij de deur
 // en een mannetje met een steekkar. Loopt als Sven aan het werk is.
 function sceneHtml(mode) {
+  if (/\bresting\b/.test(mode)) return breakSceneHtml();
   const box = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#c8904f" stroke="#1d2b53" stroke-width="1.5"/><rect x="${x + w / 2 - 2}" y="${y}" width="4" height="${h}" fill="#e9c690"/>`;
   const rack = (x) => `
     <g stroke="#1d2b53" stroke-width="2.5" fill="none"><path d="M${x} 112V22M${x + 96} 112V22M${x} 46h96M${x} 78h96M${x} 108h96"/></g>
@@ -231,6 +232,39 @@ function sceneHtml(mode) {
         <circle cx="20" cy="50" r="7" fill="#f1c9a0" stroke="#1d2b53" stroke-width="2"/>
         <path d="M13 49a7 7 0 0 1 14 0z" fill="#c8382e" stroke="#1d2b53" stroke-width="1.5"/><rect x="25" y="46.5" width="7" height="2.5" rx="1" fill="#c8382e"/>
         <g class="leg leg-a"><path d="M20 80v22" stroke="#1d2b53" stroke-width="5" stroke-linecap="round"/><path d="M19 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
+      </g></g>
+    </svg>
+  </div>`;
+}
+
+// Pauze: hetzelfde mannetje staat buiten tegen de loods te roken.
+function breakSceneHtml() {
+  return `
+  <div class="card scene resting" aria-hidden="true">
+    <svg viewBox="0 0 360 124" preserveAspectRatio="xMidYMax meet">
+      <rect x="0" y="0" width="360" height="124" fill="#f3e6cc"/>
+      <g class="cloud"><ellipse cx="250" cy="26" rx="22" ry="8" fill="#fbf4e6"/><ellipse cx="266" cy="22" rx="14" ry="8" fill="#fbf4e6"/></g>
+      <g class="cloud c2"><ellipse cx="320" cy="44" rx="16" ry="6" fill="#fbf4e6"/></g>
+      <circle cx="320" cy="20" r="10" fill="#f0b34a" opacity=".85"/>
+      <rect x="0" y="10" width="170" height="102" fill="#dcc59d" stroke="#1d2b53" stroke-width="2.5"/>
+      <path d="M0 34h170M0 58h170M0 82h170M40 10v24M100 10v24M70 34v24M130 34v24M40 58v24M100 58v24M70 82v30M130 82v30" stroke="#c4a979" stroke-width="1.5"/>
+      <rect x="30" y="46" width="92" height="66" fill="#1d2b53"/>
+      <rect x="30" y="46" width="92" height="30" fill="#efe2c8" stroke="#1d2b53" stroke-width="2"/>
+      <path d="M30 56h92M30 66h92" stroke="#1d2b53" stroke-width="1.5"/>
+      <rect x="138" y="20" width="24" height="16" fill="#1fae72" stroke="#1d2b53" stroke-width="2"/>
+      <rect x="0" y="112" width="360" height="12" fill="#c9b48c"/>
+      <path d="M0 112h360" stroke="#1d2b53" stroke-width="2"/>
+      <g transform="translate(176 0)"><g class="smoker">
+        <path d="M17 80v22M24 80v22" stroke="#1d2b53" stroke-width="5" stroke-linecap="round"/>
+        <path d="M15 103h7M22 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/>
+        <rect x="14" y="57" width="13" height="24" rx="4" fill="#c8382e" stroke="#1d2b53" stroke-width="2"/>
+        <path d="M16 62l-3 14" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
+        <circle cx="20" cy="50" r="7" fill="#f1c9a0" stroke="#1d2b53" stroke-width="2"/>
+        <path d="M13 49a7 7 0 0 1 14 0z" fill="#c8382e" stroke="#1d2b53" stroke-width="1.5"/><rect x="25" y="46.5" width="7" height="2.5" rx="1" fill="#c8382e"/>
+        <g class="arm down"><path d="M24 62l8 9" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/><path d="M32 71l5 -2" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="37.5" cy="68.8" r="1.4" fill="#e8742c"/></g>
+        <g class="arm up"><path d="M24 62l8 3l-5 -10" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M27 54l5 -1" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="32.5" cy="52.8" r="1.4" fill="#e8742c"/></g>
+        <g class="smoke"><circle cx="30" cy="50" r="3" fill="#c9c3b8"/><circle cx="33" cy="45" r="4" fill="#d6d1c7"/><circle cx="31" cy="38" r="5" fill="#e3dfd7"/></g>
+        <g class="wisp"><circle cx="38" cy="64" r="1.6" fill="#d6d1c7"/></g>
       </g></g>
     </svg>
   </div>`;
@@ -325,8 +359,7 @@ function renderToday() {
   const showInstall = !isStandalone() && !state.settings.installHintDismissed;
   el.innerHTML = `
     <div class="greet">
-      <div class="greet-top"><span class="eyebrow">Sven z'n uren</span><span class="barcode light"></span></div>
-      <h1>Hoi Sven <span class="wave">👋</span></h1>
+      <div class="greet-top"><h1>Hoi Sven</h1><span class="barcode light"></span></div>
       <div class="date">${capital(fLongDate(now))}</div>
     </div>
     ${sceneHtml([!s ? 'idle' : onBreak ? 'resting' : 'walking', state.lastAnim || ''].join(' '))}

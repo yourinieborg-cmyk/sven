@@ -70,7 +70,7 @@ p { margin: 0 0 8px; }
   box-shadow: 0 14px 26px -16px rgba(29, 43, 83, .8);
   -webkit-mask: radial-gradient(circle 7px at 0 70%, transparent 98%, #000) 0 0 / 51% 100% no-repeat, radial-gradient(circle 7px at 100% 70%, transparent 98%, #000) 100% 0 / 51% 100% no-repeat;
           mask: radial-gradient(circle 7px at 0 70%, transparent 98%, #000) 0 0 / 51% 100% no-repeat, radial-gradient(circle 7px at 100% 70%, transparent 98%, #000) 100% 0 / 51% 100% no-repeat; }
-.greet-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.greet-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .greet h1 { font-size: 46px; color: var(--card); }
 .greet .date { margin-top: 10px; font-size: 16px; letter-spacing: .04em; opacity: .9; }
 .barcode.light { background: repeating-linear-gradient(90deg, var(--card) 0 2px, transparent 2px 4px, var(--card) 4px 5px, transparent 5px 8px, var(--card) 8px 11px, transparent 11px 12px); width: 96px; height: 28px; }
@@ -144,6 +144,21 @@ p { margin: 0 0 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes floor { to { stroke-dashoffset: -24; } }
 @keyframes drive { 0% { transform: none; } 12% { transform: translateX(-4px); } 100% { transform: translateX(200px); } }
+
+/* pauze buiten */
+.scene.resting .arm.down { animation: armdown 4s steps(1) infinite; }
+.scene.resting .arm.up { animation: armup 4s steps(1) infinite; }
+.scene.resting .wisp circle { transform-box: fill-box; animation: wisp 2s ease-out infinite; }
+@keyframes armdown { 0% { opacity: 1; } 20% { opacity: 0; } 42% { opacity: 1; } }
+@keyframes armup { 0% { opacity: 0; } 20% { opacity: 1; } 42% { opacity: 0; } }
+@keyframes wisp { 0% { opacity: .8; transform: none; } 100% { opacity: 0; transform: translate(3px, -14px) scale(2); } }
+.scene.resting .smoke circle { transform-box: fill-box; transform-origin: center; animation: smoke 4s ease-out infinite; opacity: 0; }
+.scene.resting .smoke circle:nth-child(2) { animation-delay: .25s; }
+.scene.resting .smoke circle:nth-child(3) { animation-delay: .5s; }
+.scene.resting .cloud { animation: cloud 14s linear infinite alternate; }
+.scene.resting .cloud.c2 { animation-duration: 18s; }
+@keyframes smoke { 0%, 40% { opacity: 0; transform: translate(-14px, 4px) scale(.4); } 50% { opacity: .9; } 100% { opacity: 0; transform: translate(4px, -22px) scale(1.6); } }
+@keyframes cloud { to { transform: translateX(-40px); } }
 
 /* ---------- knoppen ---------- */
 .btn {
