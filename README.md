@@ -1,4 +1,4 @@
-# Sven z'n uren
+# Check-In
 
 Een eenvoudige PWA om gewerkte uren en het verwachte bruto loon bij te houden.
 Geen build-stap, geen account: gewoon statische bestanden.

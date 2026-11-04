@@ -627,7 +627,7 @@ async function renderSettings() {
       <p class="muted tiny" id="persist-status" style="margin:10px 0 0"></p>
     </div>
 
-    <p class="muted tiny" style="text-align:center">Sven z'n uren · versie ${APP_VERSION}<br>${plural(state.shifts.length, 'dienst', 'diensten')} · ${plural(state.planned.length, 'geplande dienst', 'geplande diensten')}</p>
+    <p class="muted tiny" style="text-align:center">Check-In · versie ${APP_VERSION}<br>${plural(state.shifts.length, 'dienst', 'diensten')} · ${plural(state.planned.length, 'geplande dienst', 'geplande diensten')}</p>
   `;
   if (navigator.storage && navigator.storage.persisted) {
     try {
@@ -1108,7 +1108,7 @@ async function makeReport(per = currentPeriod()) {
   if (anyTravel) { y += 32; g.fillText(`Rijkosten: ${plural(t.travelCount, 'dienst', 'diensten')}`, P, y); }
   // voet
   g.font = M(400, 20); g.fillStyle = MUTED;
-  g.fillText(`Gemaakt op ${fLongDate(new Date())} ${new Date().getFullYear()} met Sven z'n uren`, P, H - 76);
+  g.fillText(`Gemaakt op ${fLongDate(new Date())} ${new Date().getFullYear()} met Check-In`, P, H - 76);
 
   const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
   const name = `uren-sven-${per.file}.png`;
@@ -1131,7 +1131,7 @@ async function exportData() {
   const file = new File([json], name, { type: 'application/json' });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Reservekopie Sven z\'n uren' });
+      await navigator.share({ files: [file], title: 'Reservekopie Check-In' });
       return;
     }
   } catch (e) {
