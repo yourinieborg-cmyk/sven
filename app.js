@@ -1034,6 +1034,35 @@ function openReportForm() {
   });
 }
 
+// Maakt een A4-PDF met de tekening erin (zonder externe bibliotheek).
+async function canvasToPdf(canvas) {
+  const jpg = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+  const img = new Uint8Array(await jpg.arrayBuffer());
+  const PW = 595.28, PH = 841.89, M = 28;
+  const scale = Math.min((PW - 2 * M) / canvas.width, (PH - 2 * M) / canvas.height);
+  const w = canvas.width * scale, h = canvas.height * scale;
+  const x = (PW - w) / 2, y = PH - M - h;
+  const enc = new TextEncoder();
+  const parts = [];
+  const offsets = [];
+  let len = 0;
+  const push = (data) => { const b = typeof data === 'string' ? enc.encode(data) : data; parts.push(b); len += b.length; };
+  const obj = (n, body) => { offsets[n] = len; push(`${n} 0 obj\n`); body(); push('\nendobj\n'); };
+  const content = `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`;
+  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2, () => push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'));
+  obj(3, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`));
+  obj(4, () => { push(`<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`); push(img); push('\nendstream'); });
+  obj(5, () => push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
+  obj(6, () => push(`<< /Title (Urenoverzicht Sven) /Creator (Check-In) >>`));
+  const xref = len;
+  let x2 = 'xref\n0 7\n0000000000 65535 f \n';
+  for (let i = 1; i <= 6; i++) x2 += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+  push(x2 + `trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+
 async function makeReport(per = currentPeriod()) {
   const list = state.shifts.filter((x) => x.end != null && inRange(x, per.from, per.to)).sort((a, b) => a.start - b.start);
   if (!list.length) { toast('Geen afgeronde diensten in deze periode.'); return; }
@@ -1110,9 +1139,9 @@ async function makeReport(per = currentPeriod()) {
   g.font = M(400, 20); g.fillStyle = MUTED;
   g.fillText(`Gemaakt op ${fLongDate(new Date())} ${new Date().getFullYear()} met Check-In`, P, H - 76);
 
-  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
-  const name = `uren-sven-${per.file}.png`;
-  const file = new File([blob], name, { type: 'image/png' });
+  const blob = await canvasToPdf(c);
+  const name = `uren-sven-${per.file}.pdf`;
+  const file = new File([blob], name, { type: 'application/pdf' });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: `Uren Sven · ${per.title}` }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
