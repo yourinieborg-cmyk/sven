@@ -282,15 +282,15 @@ function renderToday() {
           <span><span class="t">Rijkosten</span><br><span class="s">${hasTravel() ? fEuro(state.settings.travel) + ' voor deze dienst' : 'Stel een bedrag in bij Instellingen'}</span></span>
           <span class="switch"><input type="checkbox" id="travel-toggle" ${travel(s) ? 'checked' : ''} aria-label="Rijkosten voor deze dienst"><span class="track"></span></span>
         </label>
-        <div class="btn-row" style="margin:14px 0 14px">
-          ${onBreak
-            ? '<button class="btn primary block" data-act="stopbreak">Pauze stoppen</button>'
-            : '<button class="btn amber block" data-act="startbreak">Pauze starten</button>'}
-        </div>
         <button class="big-btn out" data-act="checkout">
           <span><span class="lbl">Uitchecken</span><small>Rond je dienst af</small></span>
           <span class="arrow" aria-hidden="true">✓</span>
         </button>
+        <div class="btn-row" style="margin:16px 0 4px">
+          ${onBreak
+            ? '<button class="btn primary block" data-act="stopbreak">Pauze stoppen</button>'
+            : '<button class="btn amber block" data-act="startbreak">Pauze starten</button>'}
+        </div>
         <button class="btn ghost block small" data-act="edit-active" style="margin-top:6px">Begintijd aanpassen</button>
       </div>`;
   }
