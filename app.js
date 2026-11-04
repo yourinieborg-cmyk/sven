@@ -912,7 +912,7 @@ async function makeReport() {
   if (!list.length) { toast('Geen afgeronde diensten in deze periode.'); return; }
   try { await Promise.all(['900 40px Rubik', '700 20px "Courier Prime"', '400 20px "Courier Prime"'].map((f) => document.fonts.load(f))); } catch (_) {}
   const t = totals(list);
-  const anyTravel = t.travel > 0;
+  const anyTravel = false; // alleen tijden op het overzicht, geen bedragen
   const W = 1240, P = 80, RH = 64;
   const H = 480 + list.length * RH + 300;
   const c = document.createElement('canvas');
