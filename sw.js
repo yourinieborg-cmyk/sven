@@ -1,7 +1,7 @@
 // Service worker voor Sven z'n uren.
 // Slaat alleen de app-bestanden op. Gegevens (diensten, rooster, instellingen)
 // staan in IndexedDB en worden door een update NOOIT aangeraakt.
-const VERSION = 'v1.4.1';
+const VERSION = 'v1.4.2';
 const CACHE = 'sven-uren-' + VERSION;
 const FILES = [
   './',

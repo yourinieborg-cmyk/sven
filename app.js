@@ -503,7 +503,7 @@ function renderHours() {
       ${t.missingRate ? `<p class="hint warn" style="margin:8px 0 0">${plural(t.missingRate, 'dienst', 'diensten')} zonder uurloon ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee in het loon. Tik erop om er een in te vullen.</p>` : ''}
       <p class="disclaimer">Pauzes zijn eraf gehaald. Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>
     </div>
-    <button class="btn navy block" data-act="report" style="margin-bottom:18px">⤓ ${mode === 'week' ? 'Week' : 'Maand'} downloaden voor je baas</button>
+    <button class="btn navy block" data-act="report" style="margin-bottom:18px">⤓ Overzicht downloaden voor je baas</button>
     ${listHtml}
     ${list.length ? '<p class="muted tiny" style="text-align:center;margin-top:14px">Tik op een dienst om hem aan te passen of te verwijderen.</p>' : ''}
   `;
@@ -945,8 +945,45 @@ function currentPeriod() {
   return { from, to, title: capital(fMonthYear(from)), sub: '', file: `${fMonth(from)}-${from.getFullYear()}` };
 }
 
-async function makeReport() {
+// Zelf kiezen van welke tot welke datum het overzicht gaat.
+function openReportForm() {
   const per = currentPeriod();
+  openSheet(`
+    <h2>Overzicht downloaden</h2>
+    <form id="report-form" novalidate>
+      <div class="row2">
+        <label class="field"><span>Vanaf</span><input class="input" type="date" name="from" value="${dateKey(per.from)}"></label>
+        <label class="field"><span>Tot en met</span><input class="input" type="date" name="to" value="${dateKey(addDays(per.to, -1))}"></label>
+      </div>
+      <p class="hint">Alle afgeronde diensten die in deze periode beginnen. Alleen tijden, geen bedragen.</p>
+      <div class="error" id="form-error" hidden></div>
+      <button class="btn primary block" type="submit">Downloaden</button>
+      <button class="btn ghost block" type="button" data-act="close-sheet" style="margin-top:6px">Annuleren</button>
+    </form>`, (sheet) => {
+    $('#report-form', sheet).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const err = (m) => { const x = $('#form-error', sheet); x.textContent = m; x.hidden = false; };
+      if (!f.get('from') || !f.get('to')) return err('Kies een begin- en einddatum.');
+      const from = new Date(toStamp(f.get('from'), '00:00'));
+      const last = new Date(toStamp(f.get('to'), '00:00'));
+      if (last < from) return err('De einddatum ligt vóór de begindatum.');
+      const to = addDays(last, 1);
+      const same = +from === +per.from && +to === +per.to;
+      const custom = same ? per : {
+        from, to,
+        title: from.getFullYear() === last.getFullYear() ? `${fDayMonth(from)} – ${fDayMonth(last)} ${last.getFullYear()}` : `${fDateYear(from)} – ${fDateYear(last)}`,
+        sub: '', file: `${f.get('from')}-tot-${f.get('to')}`
+      };
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try { await makeReport(custom); } finally { btn.disabled = false; }
+      closeSheet();
+    });
+  });
+}
+
+async function makeReport(per = currentPeriod()) {
   const list = state.shifts.filter((x) => x.end != null && inRange(x, per.from, per.to)).sort((a, b) => a.start - b.start);
   if (!list.length) { toast('Geen afgeronde diensten in deze periode.'); return; }
   try { await Promise.all(['900 40px Rubik', '700 20px "Courier Prime"', '400 20px "Courier Prime"'].map((f) => document.fonts.load(f))); } catch (_) {}
@@ -1146,7 +1183,7 @@ document.addEventListener('click', async (e) => {
     case 'close-sheet': return closeSheet();
     case 'save-rate': return saveRate();
     case 'export': return exportData();
-    case 'report': return btnLock(makeReport)();
+    case 'report': return openReportForm();
     case 'import': return $('#import-file').click();
     case 'install-help': return showInstallHelp();
     case 'dismiss-install':
