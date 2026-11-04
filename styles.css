@@ -146,11 +146,7 @@ p { margin: 0 0 8px; }
 @keyframes drive { 0% { transform: none; } 12% { transform: translateX(-4px); } 100% { transform: translateX(200px); } }
 
 /* pauze buiten */
-.scene.resting .arm.down { animation: armdown 4s steps(1) infinite; }
-.scene.resting .arm.up { animation: armup 4s steps(1) infinite; }
 .scene.resting .wisp circle { transform-box: fill-box; animation: wisp 2s ease-out infinite; }
-@keyframes armdown { 0% { opacity: 1; } 20% { opacity: 0; } 42% { opacity: 1; } }
-@keyframes armup { 0% { opacity: 0; } 20% { opacity: 1; } 42% { opacity: 0; } }
 @keyframes wisp { 0% { opacity: .8; transform: none; } 100% { opacity: 0; transform: translate(3px, -14px) scale(2); } }
 .scene.resting .smoke circle { transform-box: fill-box; transform-origin: center; animation: smoke 4s ease-out infinite; opacity: 0; }
 .scene.resting .smoke circle:nth-child(2) { animation-delay: .25s; }

@@ -221,7 +221,7 @@ function sceneHtml(mode) {
         <g class="wheel"><circle cx="92" cy="56" r="9" fill="#1d2b53"/><circle cx="92" cy="56" r="3.5" fill="#fbf4e6"/></g>
       </g></g>
       <g class="walker"><g class="man">
-        <g class="leg leg-b"><path d="M20 80v22" stroke="#2b3550" stroke-width="5" stroke-linecap="round"/><path d="M19 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
+        <g class="leg leg-b"><path d="M20 80v28" stroke="#2b3550" stroke-width="5" stroke-linecap="round"/><path d="M19 109.5h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
         <g class="cart">
           <path d="M37 66l13 40h12" stroke="#5b6270" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
           <g class="load">${box(45, 92, 18, 13)}${box(43, 79, 16, 13)}${box(44, 68, 13, 11)}</g>
@@ -231,7 +231,7 @@ function sceneHtml(mode) {
         <path d="M24 63l13 4" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
         <circle cx="20" cy="50" r="7" fill="#f1c9a0" stroke="#1d2b53" stroke-width="2"/>
         <path d="M13 49a7 7 0 0 1 14 0z" fill="#c8382e" stroke="#1d2b53" stroke-width="1.5"/><rect x="25" y="46.5" width="7" height="2.5" rx="1" fill="#c8382e"/>
-        <g class="leg leg-a"><path d="M20 80v22" stroke="#1d2b53" stroke-width="5" stroke-linecap="round"/><path d="M19 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
+        <g class="leg leg-a"><path d="M20 80v28" stroke="#1d2b53" stroke-width="5" stroke-linecap="round"/><path d="M19 109.5h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/></g>
       </g></g>
     </svg>
   </div>`;
@@ -254,15 +254,19 @@ function breakSceneHtml() {
       <rect x="138" y="20" width="24" height="16" fill="#1fae72" stroke="#1d2b53" stroke-width="2"/>
       <rect x="0" y="112" width="360" height="12" fill="#c9b48c"/>
       <path d="M0 112h360" stroke="#1d2b53" stroke-width="2"/>
-      <g transform="translate(176 0)"><g class="smoker">
+      <g transform="translate(176 7)"><g class="smoker">
         <path d="M17 80v22M24 80v22" stroke="#1d2b53" stroke-width="5" stroke-linecap="round"/>
         <path d="M15 103h7M22 103h7" stroke="#1d2b53" stroke-width="4" stroke-linecap="round"/>
         <rect x="14" y="57" width="13" height="24" rx="4" fill="#c8382e" stroke="#1d2b53" stroke-width="2"/>
         <path d="M16 62l-3 14" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/>
         <circle cx="20" cy="50" r="7" fill="#f1c9a0" stroke="#1d2b53" stroke-width="2"/>
         <path d="M13 49a7 7 0 0 1 14 0z" fill="#c8382e" stroke="#1d2b53" stroke-width="1.5"/><rect x="25" y="46.5" width="7" height="2.5" rx="1" fill="#c8382e"/>
-        <g class="arm down"><path d="M24 62l8 9" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round"/><path d="M32 71l5 -2" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="37.5" cy="68.8" r="1.4" fill="#e8742c"/></g>
-        <g class="arm up"><path d="M24 62l8 3l-5 -10" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M27 54l5 -1" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="32.5" cy="52.8" r="1.4" fill="#e8742c"/></g>
+        <path d="M24 62L28 67L32 71" fill="none" stroke="#c8382e" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+          <animate attributeName="d" values="M24 62L28 67L32 71;M24 62L28 67L32 71;M24 62L32 65L27 55;M24 62L32 65L27 55;M24 62L28 67L32 71;M24 62L28 67L32 71" keyTimes="0;0.15;0.25;0.42;0.52;1" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1;0 0 1 1"/>
+        </path>
+        <g><path d="M32 71l5 -2" stroke="#fbf4e6" stroke-width="2.2" stroke-linecap="round"/><circle cx="37.5" cy="68.8" r="1.4" fill="#e8742c"/>
+          <animateTransform attributeName="transform" type="translate" values="0 0;0 0;-5 -16;-5 -16;0 0;0 0" keyTimes="0;0.15;0.25;0.42;0.52;1" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1;0 0 1 1"/>
+        </g>
         <g class="smoke"><circle cx="30" cy="50" r="3" fill="#c9c3b8"/><circle cx="33" cy="45" r="4" fill="#d6d1c7"/><circle cx="31" cy="38" r="5" fill="#e3dfd7"/></g>
         <g class="wisp"><circle cx="38" cy="64" r="1.6" fill="#d6d1c7"/></g>
       </g></g>
