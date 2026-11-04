@@ -239,6 +239,19 @@ p { margin: 0 0 8px; }
 .switch input:checked + .track::after { opacity: 1; transform: none; }
 .switch input:focus-visible + .track { outline: 3px solid var(--red); outline-offset: 2px; }
 
+/* grote rijkostenknop */
+.travel-btn { display: flex; align-items: center; gap: 14px; margin: 12px 0 4px; padding: 14px 16px; border: 3px dashed var(--ink); cursor: pointer; transition: background .2s, border-color .2s; }
+.travel-btn .tb-text { display: flex; flex-direction: column; }
+.travel-btn .tb-off, .travel-btn .tb-on { font: 900 18px var(--display); text-transform: uppercase; letter-spacing: .03em; }
+.travel-btn .tb-on { display: none; color: var(--mint); }
+.travel-btn .s { font-size: 13px; color: var(--muted); }
+.travel-btn:has(input:checked) { border-style: solid; border-color: var(--mint); background: var(--mint-soft); }
+.travel-btn:has(input:checked) .tb-on { display: block; }
+.travel-btn:has(input:checked) .tb-off { display: none; }
+.travel-btn:active { transform: scale(.98); }
+.travel-btn .switch .track::after { content: "✓"; color: var(--mint); }
+.travel-btn:has(input:checked) .switch .track { border-color: var(--mint); }
+
 /* ---------- uren ---------- */
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 3px solid var(--ink); background: var(--card); }
 .seg button { border: 0; background: transparent; padding: 11px; font: 800 14px var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--ink); transition: background .2s, color .2s; }
