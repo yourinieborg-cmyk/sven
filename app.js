@@ -464,6 +464,7 @@ function renderHours() {
       ${t.missingRate ? `<p class="hint warn" style="margin:8px 0 0">${plural(t.missingRate, 'dienst', 'diensten')} zonder uurloon ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee in het loon. Tik erop om er een in te vullen.</p>` : ''}
       <p class="disclaimer">Pauzes zijn eraf gehaald. Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>
     </div>
+    ${list.some((x) => x.end != null) ? `<button class="btn navy block" data-act="report" style="margin-bottom:18px">Overzicht voor je baas downloaden</button>` : ''}
     ${listHtml}
     ${list.length ? '<p class="muted tiny" style="text-align:center;margin-top:14px">Tik op een dienst om hem aan te passen of te verwijderen.</p>' : ''}
   `;
@@ -478,7 +479,7 @@ function renderSchedule() {
   const workedByDay = new Set(state.shifts.map((s) => dateKey(s.start)));
 
   let cells = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => `<div class="dow">${d}</div>`).join('');
-  for (let i = 0; i < 42; i++) {
+  for (let i = 0; i < 40; i++) {
     const d = addDays(gridStart, i);
     if (i === 35 && d.getMonth() !== month.getMonth()) break;
     const k = dateKey(d);
@@ -894,6 +895,107 @@ async function saveRate() {
   render();
 }
 
+// ---------- urenoverzicht als afbeelding (voor de werkgever) ----------
+function currentPeriod() {
+  const { mode, anchor } = state.hours;
+  if (mode === 'week') {
+    const from = startOfWeek(anchor), to = addDays(from, 7);
+    return { from, to, title: `Week ${weekNumber(from)}`, sub: `${fDayMonth(from)} – ${fDayMonth(addDays(to, -1))} ${addDays(to, -1).getFullYear()}`, file: `week-${weekNumber(from)}-${from.getFullYear()}` };
+  }
+  const from = startOfMonth(anchor), to = addMonths(from, 1);
+  return { from, to, title: capital(fMonthYear(from)), sub: '', file: `${fMonth(from)}-${from.getFullYear()}` };
+}
+
+async function makeReport() {
+  const per = currentPeriod();
+  const list = state.shifts.filter((x) => x.end != null && inRange(x, per.from, per.to)).sort((a, b) => a.start - b.start);
+  if (!list.length) { toast('Geen afgeronde diensten in deze periode.'); return; }
+  try { await Promise.all(['900 40px Rubik', '700 20px "Courier Prime"', '400 20px "Courier Prime"'].map((f) => document.fonts.load(f))); } catch (_) {}
+  const t = totals(list);
+  const anyTravel = t.travel > 0;
+  const W = 1240, P = 80, RH = 64;
+  const H = 480 + list.length * RH + 300;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const INK = '#1d2b53', PAPER = '#fbf4e6', LINE = '#d9c6a3', MINT = '#1fae72', MUTED = '#7a6f5c';
+  const D = (w, sz) => `${w} ${sz}px Rubik, sans-serif`;
+  const M = (w, sz) => `${w} ${sz}px "Courier Prime", monospace`;
+  const dashed = (y, col = LINE, w = 2) => { g.save(); g.setLineDash([12, 9]); g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(P, y); g.lineTo(W - P, y); g.stroke(); g.restore(); };
+  const solid = (y, w = 4) => { g.fillStyle = INK; g.fillRect(P, y, W - 2 * P, w); };
+
+  g.fillStyle = '#e9d6b4'; g.fillRect(0, 0, W, H);
+  g.fillStyle = PAPER; g.fillRect(36, 36, W - 72, H - 72);
+  // kop
+  g.fillStyle = INK; g.fillRect(36, 36, W - 72, 210);
+  g.fillStyle = PAPER; g.font = M(700, 22); g.fillText('URENOVERZICHT', P, 104);
+  g.font = D(900, 72); g.fillText('Sven', P, 186);
+  g.font = M(400, 26); g.fillText(`${per.title}${per.sub ? '  ·  ' + per.sub : ''}`, P, 226);
+  // streepjescode
+  let bx = W - P - 262;
+  for (let i = 0; i < 40; i++) { const w = [2, 4, 2, 6, 3][i % 5]; g.fillRect(bx, 82, w, 52); bx += w + 3; }
+  // stempel met totaal
+  g.save(); g.translate(W - P - 110, 336); g.rotate(-0.2);
+  g.strokeStyle = MINT; g.lineWidth = 6; g.beginPath(); g.arc(0, 0, 92, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 80, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = MINT; g.textAlign = 'center'; g.font = D(900, 48); g.fillText(fDur(t.ms), 0, 10);
+  g.font = D(800, 18); g.fillText('UUR GEWERKT', 0, 42); g.restore(); g.textAlign = 'left';
+  // samenvatting
+  g.fillStyle = INK; g.font = M(700, 22); g.fillText(`${plural(t.count, 'DIENST', 'DIENSTEN')}`, P, 300);
+  g.font = M(400, 22); g.fillStyle = MUTED; g.fillText('Tijden zoals door Sven zelf geregistreerd.', P, 334);
+  g.fillText('Betaalde uren = eindtijd − begintijd − onbetaalde pauze.', P, 364);
+  // tabel
+  const cols = anyTravel
+    ? [['DATUM', P], ['BEGIN', 430], ['EIND', 580], ['PAUZE', 730], ['UREN', 900], ['RIJKOSTEN', W - P]]
+    : [['DATUM', P], ['BEGIN', 470], ['EIND', 640], ['PAUZE', 820], ['UREN', W - P]];
+  let y = 480;
+  g.font = M(700, 20); g.fillStyle = INK;
+  cols.forEach(([n, x], i) => { g.textAlign = i === cols.length - 1 ? 'right' : 'left'; g.fillText(n, x, y); });
+  g.textAlign = 'left'; solid(y + 16);
+  y += 16;
+  for (const s of list) {
+    y += RH;
+    const st = new Date(s.start), en = new Date(s.end);
+    const over = dateKey(en) !== dateKey(st);
+    const cells = [`${fShortDay(st)} ${fDayMonth(st)}`, fTime(st), fTime(en) + (over ? ' +1' : ''), fDur(breakMs(s)), fDur(paidMs(s))];
+    if (anyTravel) cells.push(travel(s) ? fEuro(travel(s)) : '–');
+    cells.forEach((v, i) => {
+      const last = i === cells.length - 1;
+      g.textAlign = last ? 'right' : 'left';
+      g.font = i === 4 ? D(800, 28) : (i === 0 ? M(700, 26) : M(400, 26));
+      g.fillStyle = INK;
+      g.fillText(v, cols[i][1], y - 20);
+    });
+    g.textAlign = 'left';
+    dashed(y);
+  }
+  // totaal
+  y += 20; solid(y); solid(y + 8, 2);
+  y += 70;
+  g.font = D(900, 34); g.fillStyle = INK; g.fillText('Totaal', P, y);
+  g.textAlign = 'right'; g.fillText(`${fDur(t.ms)} uur`, anyTravel ? 900 + 90 : W - P, y);
+  if (anyTravel) { g.fillText(fEuro(t.travel), W - P, y); }
+  g.textAlign = 'left';
+  y += 44; g.font = M(400, 22); g.fillStyle = MUTED;
+  g.fillText(`Totaal in decimalen: ${(Math.round(t.ms / MIN) / 60).toFixed(2).replace('.', ',')} uur`, P, y);
+  if (anyTravel) { y += 32; g.fillText(`Rijkosten: ${plural(t.travelCount, 'dienst', 'diensten')}`, P, y); }
+  // voet
+  g.font = M(400, 20); g.fillStyle = MUTED;
+  g.fillText(`Gemaakt op ${fLongDate(new Date())} ${new Date().getFullYear()} met Sven z'n uren`, P, H - 76);
+
+  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+  const name = `uren-sven-${per.file}.png`;
+  const file = new File([blob], name, { type: 'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: `Uren Sven · ${per.title}` }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  toast('Overzicht gedownload.');
+}
+
 async function exportData() {
   await loadAll();
   const data = { app: 'sven-uren', schema: 1, exportedAt: new Date().toISOString(), shifts: state.shifts, planned: state.planned, settings: [state.settings] };
@@ -1005,6 +1107,7 @@ document.addEventListener('click', async (e) => {
     case 'close-sheet': return closeSheet();
     case 'save-rate': return saveRate();
     case 'export': return exportData();
+    case 'report': return btnLock(makeReport)();
     case 'import': return $('#import-file').click();
     case 'install-help': return showInstallHelp();
     case 'dismiss-install':
