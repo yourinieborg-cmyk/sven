@@ -332,7 +332,10 @@ function renderToday() {
           <div class="fact"><span>Pauze</span><span class="v num" data-live="break">${fDur(breakMs(s))}</span></div>
           <div class="fact"><span>Tot nu</span><span class="v num" data-live="wage">${w != null ? fEuro(w) : '–'}</span></div>
         </div>
-        <button class="btn ghost block small" data-act="edit-active" style="margin-top:6px">Begintijd aanpassen</button>
+        <div class="btn-row" style="margin-top:6px">
+          <button class="btn ghost small" data-act="edit-active">Begintijd aanpassen</button>
+          <button class="btn ghost small" data-act="forgot">Vergeten uit te checken?</button>
+        </div>
       </div>`;
   }
 
@@ -377,6 +380,11 @@ function renderToday() {
       <div class="notice info">
         <div class="grow"><b>Zet de app op je beginscherm</b><br><span class="small">Dan open je hem met één tik.</span></div>
         <button class="btn small navy" data-act="install-help">Hoe?</button>
+      </div>` : ''}
+    ${s && Date.now() - s.start > 12 * HOUR && !s.longOk ? `
+      <div class="notice">
+        <div class="grow"><b>Vergeten uit te checken?</b><br><span class="small">Je bent al sinds ${fShortDay(new Date(s.start))} ${fTime(s.start)} ingecheckt.</span></div>
+        <button class="btn small navy" data-act="forgot">Eindtijd invullen</button>
       </div>` : ''}
     ${action}
     ${npHtml}
@@ -815,6 +823,49 @@ function openShiftForm(existing) {
   });
 }
 
+// Vergeten uit te checken: zelf de echte eindtijd invullen.
+function openForgotForm() {
+  const s = activeShift();
+  if (!s) return;
+  const guess = Math.min(Date.now(), s.start + 8 * HOUR);
+  const long = Date.now() - s.start > 12 * HOUR;
+  openSheet(`
+    <h2>Vergeten uit te checken?</h2>
+    <p class="small">Je checkte in op <b>${fLongDate(new Date(s.start))} om ${fTime(s.start)}</b>. Wanneer ben je gestopt?</p>
+    <form id="forgot-form" novalidate>
+      <div class="row2">
+        <label class="field"><span>Datum</span><input class="input" type="date" name="date" value="${dateKey(guess)}"></label>
+        <label class="field"><span>Eindtijd</span><input class="input num" type="time" name="end" value="${fTime(guess)}"></label>
+      </div>
+      <div class="error" id="form-error" hidden></div>
+      <button class="btn primary block" type="submit">Uitchecken met deze tijd</button>
+      ${long ? '<button class="btn block" type="button" data-act="still-working" style="margin-top:12px">Ik ben nog steeds aan het werk</button>' : ''}
+      <button class="btn ghost block" type="button" data-act="close-sheet" style="margin-top:6px">Annuleren</button>
+    </form>`, (sheet) => {
+    $('#forgot-form', sheet).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const err = (m) => { const x = $('#form-error', sheet); x.textContent = m; x.hidden = false; };
+      if (!f.get('date') || !f.get('end')) return err('Vul een datum en eindtijd in.');
+      const end = toStamp(f.get('date'), f.get('end'));
+      if (end <= s.start) return err('De eindtijd moet na je begintijd (' + fTime(s.start) + ') liggen.');
+      if (end > Date.now()) return err('De eindtijd kan niet in de toekomst liggen.');
+      const breaks = (s.breaks || []).filter((b) => b.start < end).map((b) => (b.end == null || b.end > end ? { ...b, end } : b));
+      const done = { ...s, end, breaks, updatedAt: Date.now() };
+      delete done.longOk;
+      await saveShift(done);
+      closeSheet();
+      state.anim = 'leave';
+      toast(`Uitgecheckt om ${fTime(end)}. ${fDur(paidMs(done))} uur.`);
+      render();
+    });
+    $('[data-act="still-working"]', sheet)?.addEventListener('click', async () => {
+      await saveShift({ ...s, longOk: true });
+      closeSheet(); render();
+    });
+  });
+}
+
 function openActiveForm() {
   const s = activeShift();
   if (!s) return;
@@ -1177,6 +1228,7 @@ document.addEventListener('click', async (e) => {
     case 'startbreak': return btnLock(startBreak)();
     case 'stopbreak': return btnLock(stopBreak)();
     case 'edit-active': return openActiveForm();
+    case 'forgot': return openForgotForm();
     case 'add-shift': return openShiftForm(null);
     case 'add-plan': return openPlanForm(null, state.schedule.selected);
     case 'add-plan-day': return openPlanForm(null, state.schedule.selected);
