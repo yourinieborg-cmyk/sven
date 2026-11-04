@@ -1034,112 +1034,139 @@ function openReportForm() {
   });
 }
 
-// Maakt een A4-PDF met de tekening erin (zonder externe bibliotheek).
-async function canvasToPdf(canvas) {
-  const jpg = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
-  const img = new Uint8Array(await jpg.arrayBuffer());
-  const PW = 595.28, PH = 841.89, M = 28;
-  const scale = Math.min((PW - 2 * M) / canvas.width, (PH - 2 * M) / canvas.height);
-  const w = canvas.width * scale, h = canvas.height * scale;
-  const x = (PW - w) / 2, y = PH - M - h;
-  const enc = new TextEncoder();
-  const parts = [];
-  const offsets = [];
-  let len = 0;
-  const push = (data) => { const b = typeof data === 'string' ? enc.encode(data) : data; parts.push(b); len += b.length; };
-  const obj = (n, body) => { offsets[n] = len; push(`${n} 0 obj\n`); body(); push('\nendobj\n'); };
-  const content = `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`;
-  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
-  obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
-  obj(2, () => push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'));
-  obj(3, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`));
-  obj(4, () => { push(`<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`); push(img); push('\nendstream'); });
-  obj(5, () => push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
-  obj(6, () => push(`<< /Title (Urenoverzicht Sven) /Creator (Check-In) >>`));
-  const xref = len;
-  let x2 = 'xref\n0 7\n0000000000 65535 f \n';
-  for (let i = 1; i <= 6; i++) x2 += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
-  push(x2 + `trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
-  return new Blob(parts, { type: 'application/pdf' });
+// Kleine PDF-maker met echte tekst (standaardletters, geen externe bibliotheek).
+// Maten in "eenheden": 1240 eenheden = A4-breedte.
+function pdfDoc() {
+  const k = 595.28 / 1240, PH = 841.89;
+  const pages = [];
+  let cur;
+  const n = (v) => String(+v.toFixed(2));
+  const X = (u) => n(u * k), Y = (u) => n(PH - u * k);
+  const col = (hex) => [1, 3, 5].map((i) => n(parseInt(hex.slice(i, i + 2), 16) / 255)).join(' ');
+  const FONT = { D: 'F1', MB: 'F2', M: 'F3' };
+  const meas = document.createElement('canvas').getContext('2d');
+  const width = (s, f, sz) => {
+    if (f !== 'D') return s.length * sz * 0.6; // Courier: vaste breedte
+    meas.font = `bold ${sz}px Helvetica, Arial, sans-serif`;
+    return meas.measureText(s).width;
+  };
+  const esc = (s) => s.replace(/−/g, '-').replace(/[\\()]/g, '\\$&');
+  const circle = (r) => { const c = r * 0.5523; return `${n(r)} 0 m ${n(r)} ${n(c)} ${n(c)} ${n(r)} 0 ${n(r)} c ${n(-c)} ${n(r)} ${n(-r)} ${n(c)} ${n(-r)} 0 c ${n(-r)} ${n(-c)} ${n(-c)} ${n(-r)} 0 ${n(-r)} c ${n(c)} ${n(-r)} ${n(r)} ${n(-c)} ${n(r)} 0 c S`; };
+  return {
+    H: PH / k,
+    page() { cur = []; pages.push(cur); },
+    get count() { return pages.length; },
+    goto(i) { cur = pages[i]; },
+    rect(x, y, w, h, c) { cur.push(`${col(c)} rg ${X(x)} ${Y(y + h)} ${n(w * k)} ${n(h * k)} re f`); },
+    line(x1, x2, y, c, w, dash) { cur.push(`q ${col(c)} RG ${n(w * k)} w ${dash ? `[${n(dash[0] * k)} ${n(dash[1] * k)}] 0 d ` : ''}${X(x1)} ${Y(y)} m ${X(x2)} ${Y(y)} l S Q`); },
+    text(s, x, y, f, sz, c, align = 'left') {
+      const w = width(s, f, sz);
+      if (align === 'right') x -= w; else if (align === 'center') x -= w / 2;
+      cur.push(`BT /${FONT[f]} ${n(sz * k)} Tf ${col(c)} rg ${X(x)} ${Y(y)} Td (${esc(s)}) Tj ET`);
+    },
+    stamp(cx, cy, big, small, c) {
+      const a = 0.2, co = n(Math.cos(a)), si = n(Math.sin(a));
+      const t = (s, sz, dy) => `BT /F1 ${n(sz * k)} Tf ${n(-width(s, 'D', sz) * k / 2)} ${n(-dy * k)} Td (${esc(s)}) Tj ET`;
+      cur.push(`q 1 0 0 1 ${X(cx)} ${Y(cy)} cm ${co} ${si} ${-si} ${co} 0 0 cm ${col(c)} RG ${col(c)} rg ${n(6 * k)} w ${circle(92 * k)} ${n(3 * k)} w ${circle(80 * k)} ${t(big, 48, 10)} ${t(small, 18, 42)} Q`);
+    },
+    build(title) {
+      const bytes = [];
+      const off = [];
+      const W1252 = { '€': 0x80, '–': 0x96, '—': 0x97, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94 };
+      const add = (s) => { for (const ch of s) { const cc = ch.charCodeAt(0); bytes.push(W1252[ch] ?? (cc < 256 ? cc : 63)); } };
+      const obj = (i, body) => { off[i] = bytes.length; add(`${i} 0 obj\n${body}\nendobj\n`); };
+      const np = pages.length, first = 6;
+      add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+      obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+      obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${first + i * 2} 0 R`).join(' ')}] /Count ${np} >>`);
+      const enc = '/Encoding /WinAnsiEncoding';
+      obj(3, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold ${enc} >>`);
+      obj(4, `<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold ${enc} >>`);
+      obj(5, `<< /Type /Font /Subtype /Type1 /BaseFont /Courier ${enc} >>`);
+      pages.forEach((p, i) => {
+        const s = p.join('\n');
+        const len = [...s].length; // elk teken wordt 1 byte
+        obj(first + i * 2, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${first + i * 2 + 1} 0 R >>`);
+        obj(first + i * 2 + 1, `<< /Length ${len} >>\nstream\n${s}\nendstream`);
+      });
+      const info = first + np * 2;
+      obj(info, `<< /Title (${esc(title.replace(/[–—]/g, "-"))}) /Creator (Check-In) >>`);
+      const xref = bytes.length;
+      let x = `xref\n0 ${info + 1}\n0000000000 65535 f \n`;
+      for (let i = 1; i <= info; i++) x += String(off[i]).padStart(10, '0') + ' 00000 n \n';
+      add(x + `trailer\n<< /Size ${info + 1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+      return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+    },
+  };
 }
 
 async function makeReport(per = currentPeriod()) {
   const list = state.shifts.filter((x) => x.end != null && inRange(x, per.from, per.to)).sort((a, b) => a.start - b.start);
   if (!list.length) { toast('Geen afgeronde diensten in deze periode.'); return; }
-  try { await Promise.all(['900 40px Rubik', '700 20px "Courier Prime"', '400 20px "Courier Prime"'].map((f) => document.fonts.load(f))); } catch (_) {}
   const t = totals(list);
-  const anyTravel = false; // alleen tijden op het overzicht, geen bedragen
-  const W = 1240, P = 80, RH = 64;
-  const H = 480 + list.length * RH + 300;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const g = c.getContext('2d');
   const INK = '#1d2b53', PAPER = '#fbf4e6', LINE = '#d9c6a3', MINT = '#1fae72', MUTED = '#7a6f5c';
-  const D = (w, sz) => `${w} ${sz}px Rubik, sans-serif`;
-  const M = (w, sz) => `${w} ${sz}px "Courier Prime", monospace`;
-  const dashed = (y, col = LINE, w = 2) => { g.save(); g.setLineDash([12, 9]); g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(P, y); g.lineTo(W - P, y); g.stroke(); g.restore(); };
-  const solid = (y, w = 4) => { g.fillStyle = INK; g.fillRect(P, y, W - 2 * P, w); };
+  const W = 1240, P = 80, RH = 64;
+  const pdf = pdfDoc();
+  const H = pdf.H, BOTTOM = H - 130;
+  const periode = `${per.title}${per.sub ? '  ·  ' + per.sub : ''}`;
+  const made = `Gemaakt op ${fLongDate(new Date())} ${new Date().getFullYear()} met Check-In`;
+  const cols = [['DATUM', P], ['BEGIN', 470], ['EIND', 640], ['PAUZE', 820], ['UREN', W - P]];
+  const solid = (y, w = 4) => pdf.rect(P, y, W - 2 * P, w, INK);
+  const tableHead = (y) => {
+    cols.forEach(([nm, x], i) => pdf.text(nm, x, y, 'MB', 20, INK, i === cols.length - 1 ? 'right' : 'left'));
+    solid(y + 16);
+    return y + 16;
+  };
+  const newPage = (firstPage) => {
+    pdf.page();
+    pdf.rect(0, 0, W, H, PAPER);
+    if (firstPage) {
+      pdf.rect(0, 0, W, 250, INK);
+      pdf.text('URENOVERZICHT', P, 90, 'MB', 22, PAPER);
+      pdf.text('Sven', P, 176, 'D', 72, PAPER);
+      pdf.text(periode, P, 220, 'M', 26, PAPER);
+      let bx = W - P - 262;
+      for (let i = 0; i < 40; i++) { const w = [2, 4, 2, 6, 3][i % 5]; pdf.rect(bx, 70, w, 52, PAPER); bx += w + 3; }
+      pdf.stamp(W - P - 110, 350, fDur(t.ms), 'UUR GEWERKT', MINT);
+      pdf.text(plural(t.count, 'DIENST', 'DIENSTEN'), P, 316, 'MB', 22, INK);
+      pdf.text('Tijden zoals door Sven zelf geregistreerd.', P, 350, 'M', 22, MUTED);
+      pdf.text('Betaalde uren = eindtijd - begintijd - onbetaalde pauze.', P, 380, 'M', 22, MUTED);
+      return tableHead(490);
+    }
+    pdf.rect(0, 0, W, 110, INK);
+    pdf.text('URENOVERZICHT  ·  Sven', P, 66, 'MB', 22, PAPER);
+    pdf.text(periode, W - P, 66, 'M', 22, PAPER, 'right');
+    return tableHead(200);
+  };
 
-  g.fillStyle = '#e9d6b4'; g.fillRect(0, 0, W, H);
-  g.fillStyle = PAPER; g.fillRect(36, 36, W - 72, H - 72);
-  // kop
-  g.fillStyle = INK; g.fillRect(36, 36, W - 72, 210);
-  g.fillStyle = PAPER; g.font = M(700, 22); g.fillText('URENOVERZICHT', P, 104);
-  g.font = D(900, 72); g.fillText('Sven', P, 186);
-  g.font = M(400, 26); g.fillText(`${per.title}${per.sub ? '  ·  ' + per.sub : ''}`, P, 226);
-  // streepjescode
-  let bx = W - P - 262;
-  for (let i = 0; i < 40; i++) { const w = [2, 4, 2, 6, 3][i % 5]; g.fillRect(bx, 82, w, 52); bx += w + 3; }
-  // stempel met totaal
-  g.save(); g.translate(W - P - 110, 336); g.rotate(-0.2);
-  g.strokeStyle = MINT; g.lineWidth = 6; g.beginPath(); g.arc(0, 0, 92, 0, Math.PI * 2); g.stroke();
-  g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 80, 0, Math.PI * 2); g.stroke();
-  g.fillStyle = MINT; g.textAlign = 'center'; g.font = D(900, 48); g.fillText(fDur(t.ms), 0, 10);
-  g.font = D(800, 18); g.fillText('UUR GEWERKT', 0, 42); g.restore(); g.textAlign = 'left';
-  // samenvatting
-  g.fillStyle = INK; g.font = M(700, 22); g.fillText(`${plural(t.count, 'DIENST', 'DIENSTEN')}`, P, 300);
-  g.font = M(400, 22); g.fillStyle = MUTED; g.fillText('Tijden zoals door Sven zelf geregistreerd.', P, 334);
-  g.fillText('Betaalde uren = eindtijd − begintijd − onbetaalde pauze.', P, 364);
-  // tabel
-  const cols = anyTravel
-    ? [['DATUM', P], ['BEGIN', 430], ['EIND', 580], ['PAUZE', 730], ['UREN', 900], ['RIJKOSTEN', W - P]]
-    : [['DATUM', P], ['BEGIN', 470], ['EIND', 640], ['PAUZE', 820], ['UREN', W - P]];
-  let y = 480;
-  g.font = M(700, 20); g.fillStyle = INK;
-  cols.forEach(([n, x], i) => { g.textAlign = i === cols.length - 1 ? 'right' : 'left'; g.fillText(n, x, y); });
-  g.textAlign = 'left'; solid(y + 16);
-  y += 16;
+  let y = newPage(true);
   for (const s of list) {
+    if (y + RH > BOTTOM) y = newPage(false);
     y += RH;
     const st = new Date(s.start), en = new Date(s.end);
     const over = dateKey(en) !== dateKey(st);
     const cells = [`${fShortDay(st)} ${fDayMonth(st)}`, fTime(st), fTime(en) + (over ? ' +1' : ''), fDur(breakMs(s)), fDur(paidMs(s))];
-    if (anyTravel) cells.push(travel(s) ? fEuro(travel(s)) : '–');
     cells.forEach((v, i) => {
       const last = i === cells.length - 1;
-      g.textAlign = last ? 'right' : 'left';
-      g.font = i === 4 ? D(800, 28) : (i === 0 ? M(700, 26) : M(400, 26));
-      g.fillStyle = INK;
-      g.fillText(v, cols[i][1], y - 20);
+      pdf.text(v, cols[i][1], y - 20, last ? 'D' : (i === 0 ? 'MB' : 'M'), last ? 28 : 26, INK, last ? 'right' : 'left');
     });
-    g.textAlign = 'left';
-    dashed(y);
+    pdf.line(P, W - P, y, LINE, 2, [12, 9]);
   }
-  // totaal
+  if (y + 190 > BOTTOM) y = newPage(false);
   y += 20; solid(y); solid(y + 8, 2);
   y += 70;
-  g.font = D(900, 34); g.fillStyle = INK; g.fillText('Totaal', P, y);
-  g.textAlign = 'right'; g.fillText(`${fDur(t.ms)} uur`, anyTravel ? 900 + 90 : W - P, y);
-  if (anyTravel) { g.fillText(fEuro(t.travel), W - P, y); }
-  g.textAlign = 'left';
-  y += 44; g.font = M(400, 22); g.fillStyle = MUTED;
-  g.fillText(`Totaal in decimalen: ${(Math.round(t.ms / MIN) / 60).toFixed(2).replace('.', ',')} uur`, P, y);
-  if (anyTravel) { y += 32; g.fillText(`Rijkosten: ${plural(t.travelCount, 'dienst', 'diensten')}`, P, y); }
-  // voet
-  g.font = M(400, 20); g.fillStyle = MUTED;
-  g.fillText(`Gemaakt op ${fLongDate(new Date())} ${new Date().getFullYear()} met Check-In`, P, H - 76);
+  pdf.text('Totaal', P, y, 'D', 34, INK);
+  pdf.text(`${fDur(t.ms)} uur`, W - P, y, 'D', 34, INK, 'right');
+  y += 44;
+  pdf.text(`Totaal in decimalen: ${(Math.round(t.ms / MIN) / 60).toFixed(2).replace('.', ',')} uur`, P, y, 'M', 22, MUTED);
 
-  const blob = await canvasToPdf(c);
+  // voet op elke pagina, met paginanummer als het er meer zijn
+  const nP = pdf.count;
+  for (let i = 0; i < nP; i++) {
+    pdf.goto(i);
+    pdf.text(made + (nP > 1 ? `  ·  pagina ${i + 1} van ${nP}` : ''), P, H - 70, 'M', 20, MUTED);
+  }
+  const blob = pdf.build(`Urenoverzicht Sven ${per.title}`);
   const name = `uren-sven-${per.file}.pdf`;
   const file = new File([blob], name, { type: 'application/pdf' });
   try {
