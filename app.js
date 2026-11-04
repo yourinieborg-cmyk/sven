@@ -503,7 +503,7 @@ function renderHours() {
       ${t.missingRate ? `<p class="hint warn" style="margin:8px 0 0">${plural(t.missingRate, 'dienst', 'diensten')} zonder uurloon ${t.missingRate === 1 ? 'telt' : 'tellen'} niet mee in het loon. Tik erop om er een in te vullen.</p>` : ''}
       <p class="disclaimer">Pauzes zijn eraf gehaald. Indicatie, exclusief toeslagen, vakantiegeld en inhoudingen.</p>
     </div>
-    ${list.some((x) => x.end != null) ? `<button class="btn navy block" data-act="report" style="margin-bottom:18px">Overzicht voor je baas downloaden</button>` : ''}
+    <button class="btn navy block" data-act="report" style="margin-bottom:18px">⤓ ${mode === 'week' ? 'Week' : 'Maand'} downloaden voor je baas</button>
     ${listHtml}
     ${list.length ? '<p class="muted tiny" style="text-align:center;margin-top:14px">Tik op een dienst om hem aan te passen of te verwijderen.</p>' : ''}
   `;
